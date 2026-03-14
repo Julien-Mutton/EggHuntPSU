@@ -7,6 +7,7 @@ export default function EggExport() {
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [filter, setFilter] = useState('not_exported');
+    const [rarity, setRarity] = useState('all');
 
     useEffect(() => {
         api.get('/admin/eggs/?redeemed=false&page_size=10000')
@@ -16,8 +17,9 @@ export default function EggExport() {
     }, []);
 
     const filteredEggs = eggs.filter(egg => {
-        if (filter === 'not_exported') return !egg.exported_to_pdf;
-        if (filter === 'exported') return egg.exported_to_pdf;
+        if (filter === 'not_exported' && egg.exported_to_pdf) return false;
+        if (filter === 'exported' && !egg.exported_to_pdf) return false;
+        if (rarity !== 'all' && egg.rarity !== rarity) return false;
         return true;
     });
 
@@ -96,16 +98,25 @@ export default function EggExport() {
             </div>
 
             <div className="export-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                <div className="filter-bar">
-                    {[
-                        { key: 'not_exported', label: 'Not Exported' },
-                        { key: 'exported', label: 'Exported' },
-                        { key: 'all', label: 'All' },
-                    ].map(f => (
-                        <button key={f.key} className={`filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
-                            {f.label}
-                        </button>
-                    ))}
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div className="filter-bar">
+                        {[
+                            { key: 'not_exported', label: 'Not Exported' },
+                            { key: 'exported', label: 'Exported' },
+                            { key: 'all', label: 'All' },
+                        ].map(f => (
+                            <button key={f.key} className={`filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
+                    <select value={rarity} onChange={e => setRarity(e.target.value)} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)' }}>
+                        <option value="all">All Rarities</option>
+                        <option value="common">Common</option>
+                        <option value="uncommon">Uncommon</option>
+                        <option value="rare">Rare</option>
+                        <option value="legendary">Legendary</option>
+                    </select>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button className="btn btn-secondary" onClick={selectAll}>
@@ -132,6 +143,7 @@ export default function EggExport() {
                                 <th>Code</th>
                                 <th>Title</th>
                                 <th>Points</th>
+                                <th>Rarity</th>
                                 <th>Label</th>
                                 <th>Export Status</th>
                             </tr>
@@ -149,6 +161,7 @@ export default function EggExport() {
                                     <td className="code-cell">{String(egg.code_identifier).slice(0, 8)}</td>
                                     <td>{egg.title || '—'}</td>
                                     <td>{egg.points}</td>
+                                    <td><span className={`badge badge-${egg.rarity || 'common'}`}>{egg.rarity || 'common'}</span></td>
                                     <td>{egg.label_text || '—'}</td>
                                     <td>
                                         <span className={`badge ${egg.exported_to_pdf ? 'badge-success' : 'badge-muted'}`}>
