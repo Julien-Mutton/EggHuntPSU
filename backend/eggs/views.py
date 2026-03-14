@@ -2,16 +2,16 @@
 Egg views: generation, management, redemption, and export.
 """
 
+import os
+import logging
+
 from django.db import transaction
 from django.http import HttpResponse
 from django.utils import timezone
-import logging
 from django.conf import settings
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-logger = logging.getLogger(__name__)
 
 from accounts.permissions import IsAdmin
 from .models import EggQRCode, Redemption, RewardLink, RewardLinkClaim
@@ -21,6 +21,8 @@ from .serializers import (
     EggInfoSerializer, RewardLinkSerializer,
 )
 from .pdf_export import export_eggs_pdf
+
+logger = logging.getLogger(__name__)
 
 
 # ── Admin: Generate Eggs ────────────────────────────────────
@@ -101,8 +103,6 @@ class EggGenerateView(APIView):
 
 # ── Admin: List / Detail / Update / Local Videos ────────────
 
-import os
-
 class LocalVideoListView(APIView):
     """GET /api/admin/eggs/videos/ — List available local videos."""
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
@@ -171,6 +171,7 @@ class EggExportView(APIView):
             )
 
         pdf_buf = export_eggs_pdf(eggs)
+        eggs.update(exported_to_pdf=True)
         response = HttpResponse(pdf_buf.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="egg_hunt_qrcodes.pdf"'
         return response
@@ -235,6 +236,52 @@ class LinkClaimView(APIView):
 
 # ── User: Redeem ─────────────────────────────────────────────
 
+def _build_reward_links(egg, user):
+    """Build reward links list with per-user claim status."""
+    result = []
+    for link in egg.reward_links.all():
+        already_claimed = (
+            link.is_unique_per_user
+            and RewardLinkClaim.objects.filter(user=user, reward_link=link).exists()
+        )
+        result.append({
+            'id': link.id,
+            'name': link.name,
+            'url': link.url,
+            'icon': link.icon or '',
+            'order': link.order,
+            'extra_points': link.extra_points,
+            'is_unique_per_user': link.is_unique_per_user,
+            'already_claimed': already_claimed,
+        })
+    return result
+
+
+def _redeem_response(request, egg, user, *, success, message, points_earned, reward_links=None):
+    """Build a serialized redemption result response dict."""
+    show_full_reward = success
+    custom_video_url = None
+    if show_full_reward and egg.local_video_path:
+        custom_video_url = request.build_absolute_uri(
+            settings.MEDIA_URL.rstrip('/') + '/' + egg.local_video_path.lstrip('/')
+        )
+    return RedemptionResultSerializer({
+        'success': success,
+        'message': message,
+        'points_earned': points_earned,
+        'total_points': user.total_points,
+        'egg_title': (egg.title or 'Mystery Egg') if show_full_reward else egg.title,
+        'show_gif': egg.show_gif if show_full_reward else False,
+        'gif_url': egg.gif if show_full_reward else None,
+        'custom_video_url': custom_video_url,
+        'video_url': egg.video_url if show_full_reward else None,
+        'rarity': egg.rarity,
+        'reward_message': egg.reward_message if show_full_reward else '',
+        'is_rickroll': egg.is_rickroll if show_full_reward else False,
+        'reward_links': reward_links or [],
+    }).data
+
+
 class RedeemView(APIView):
     """
     POST /api/redeem/<code_identifier>/
@@ -244,11 +291,10 @@ class RedeemView(APIView):
 
     def post(self, request, code_identifier):
         user = request.user
-        logger.info(f"User {user.username} (ID: {user.id}) attempting to redeem egg: {code_identifier}")
+        logger.info("User %s (ID: %s) attempting to redeem egg: %s", user.username, user.id, code_identifier)
 
         try:
             with transaction.atomic():
-                # Lock the egg row to prevent race conditions
                 egg = (
                     EggQRCode.objects
                     .select_for_update()
@@ -257,169 +303,63 @@ class RedeemView(APIView):
                 )
 
                 if not egg.is_active:
-                    logger.warning(f"Redemption failed: Egg {egg.id} is inactive. User: {user.username}")
                     return Response(
-                        RedemptionResultSerializer({
-                            'success': False,
-                            'message': 'This egg is no longer active.',
-                            'points_earned': 0,
-                            'total_points': user.total_points,
-                            'egg_title': egg.title,
-                            'show_gif': False,
-                            'gif_url': None,
-                            'custom_video_url': None,
-                            'video_url': None,
-                            'rarity': egg.rarity,
-                            'reward_message': '',
-                            'is_rickroll': False,
-                            'reward_links': [],
-                        }).data,
+                        _redeem_response(request, egg, user, success=False,
+                                         message='This egg is no longer active.', points_earned=0),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 if egg.is_redeemed:
                     if egg.redeemed_by == user:
-                        # ALREADY REDEEMED BY *THIS* USER:
-                        # Return success but 0 new points, so they can see the reward again
-                        logger.info(f"Redemption replay: Egg {egg.id} already redeemed by {user.username}. Returning reward data.")
-                        
-                        reward_links_data = []
-                        for link in egg.reward_links.all():
-                            already_claimed = False
-                            if link.is_unique_per_user:
-                                already_claimed = RewardLinkClaim.objects.filter(
-                                    user=user, reward_link=link
-                                ).exists()
-                            reward_links_data.append({
-                                'id': link.id,
-                                'name': link.name,
-                                'url': link.url,
-                                'icon': link.icon or '',
-                                'order': link.order,
-                                'extra_points': link.extra_points,
-                                'is_unique_per_user': link.is_unique_per_user,
-                                'already_claimed': already_claimed,
-                            })
-
                         return Response(
-                            RedemptionResultSerializer({
-                                'success': True,
-                                'message': 'You have already found this egg!',
-                                'points_earned': 0,
-                                'total_points': user.total_points,
-                                'egg_title': egg.title or 'Mystery Egg',
-                                'show_gif': egg.show_gif,
-                                'gif_url': egg.gif,
-                                'custom_video_url': request.build_absolute_uri(settings.MEDIA_URL.rstrip('/') + '/' + egg.local_video_path.lstrip('/')) if egg.local_video_path else None,
-                                'video_url': egg.video_url,
-                                'rarity': egg.rarity,
-                                'reward_message': egg.reward_message,
-                                'is_rickroll': egg.is_rickroll,
-                                'reward_links': reward_links_data,
-                            }).data,
+                            _redeem_response(request, egg, user, success=True,
+                                             message='You have already found this egg!', points_earned=0,
+                                             reward_links=_build_reward_links(egg, user)),
                             status=status.HTTP_200_OK,
                         )
-                    else:
-                        # ALREADY REDEEMED BY *SOMEONE ELSE*
-                        logger.warning(f"Redemption failed: Egg {egg.id} already redeemed by {egg.redeemed_by}. Current user: {user.username}")
-                        return Response(
-                            RedemptionResultSerializer({
-                                'success': False,
-                                'message': 'This egg has already been claimed by someone else!',
-                                'points_earned': 0,
-                                'total_points': user.total_points,
-                                'egg_title': egg.title,
-                                'show_gif': False,
-                                'gif_url': None,
-                                'custom_video_url': None,
-                                'video_url': None,
-                                'rarity': egg.rarity,
-                                'reward_message': '',
-                                'is_rickroll': False,
-                                'reward_links': [],
-                            }).data,
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
+                    return Response(
+                        _redeem_response(request, egg, user, success=False,
+                                         message='This egg has already been claimed by someone else!',
+                                         points_earned=0),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-                # Mark egg as redeemed
-                now = timezone.now()
                 egg.is_redeemed = True
                 egg.redeemed_by = user
-                egg.redeemed_at = now
-                egg.save(update_fields=[
-                    'is_redeemed', 'redeemed_by', 'redeemed_at', 'updated_at',
-                ])
-                logger.info(f"Redemption atomic success: Egg {egg.id} marked as redeemed by {user.username} at {now}")
+                egg.redeemed_at = timezone.now()
+                egg.save(update_fields=['is_redeemed', 'redeemed_by', 'redeemed_at', 'updated_at'])
 
-                # Update user total points
                 user.total_points += egg.points
                 user.save(update_fields=['total_points'])
 
-                # Create redemption record
-                Redemption.objects.create(
-                    user=user,
-                    egg=egg,
-                    points_awarded=egg.points,
-                )
-
-                # Build reward_links with already_claimed for unique links
-                reward_links_data = []
-                for link in egg.reward_links.all():
-                    already_claimed = False
-                    if link.is_unique_per_user:
-                        already_claimed = RewardLinkClaim.objects.filter(
-                            user=user, reward_link=link
-                        ).exists()
-                    reward_links_data.append({
-                        'id': link.id,
-                        'name': link.name,
-                        'url': link.url,
-                        'icon': link.icon or '',
-                        'order': link.order,
-                        'extra_points': link.extra_points,
-                        'is_unique_per_user': link.is_unique_per_user,
-                        'already_claimed': already_claimed,
-                    })
+                Redemption.objects.create(user=user, egg=egg, points_awarded=egg.points)
 
                 return Response(
-                    RedemptionResultSerializer({
-                        'success': True,
-                        'message': f'You found an egg worth {egg.points} points!',
-                        'points_earned': egg.points,
-                        'total_points': user.total_points,
-                        'egg_title': egg.title or 'Mystery Egg',
-                        'show_gif': egg.show_gif,
-                        'gif_url': egg.gif,
-                        'custom_video_url': request.build_absolute_uri(settings.MEDIA_URL.rstrip('/') + '/' + egg.local_video_path.lstrip('/')) if egg.local_video_path else None,
-                        'video_url': egg.video_url,
-                        'rarity': egg.rarity,
-                        'reward_message': egg.reward_message,
-                        'is_rickroll': egg.is_rickroll,
-                        'reward_links': reward_links_data,
-                    }).data,
+                    _redeem_response(request, egg, user, success=True,
+                                     message=f'You found an egg worth {egg.points} points!',
+                                     points_earned=egg.points,
+                                     reward_links=_build_reward_links(egg, user)),
                     status=status.HTTP_200_OK,
                 )
 
         except EggQRCode.DoesNotExist:
-            logger.warning(f"Redemption failed: Code {code_identifier} not found in database. User: {user.username}")
-            return Response(
-                RedemptionResultSerializer({
-                    'success': False,
-                    'message': 'Invalid QR code. This egg does not exist.',
-                    'points_earned': 0,
-                    'total_points': user.total_points,
-                    'egg_title': '',
-                    'show_gif': False,
-                    'gif_url': None,
-                    'custom_video_url': None,
-                    'video_url': None,
-                    'rarity': 'common',
-                    'reward_message': '',
-                    'is_rickroll': False,
-                    'reward_links': [],
-                }).data,
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            logger.warning("Redemption failed: Code %s not found. User: %s", code_identifier, user.username)
+            empty_result = RedemptionResultSerializer({
+                'success': False,
+                'message': 'Invalid QR code. This egg does not exist.',
+                'points_earned': 0,
+                'total_points': user.total_points,
+                'egg_title': '',
+                'show_gif': False,
+                'gif_url': None,
+                'custom_video_url': None,
+                'video_url': None,
+                'rarity': 'common',
+                'reward_message': '',
+                'is_rickroll': False,
+                'reward_links': [],
+            }).data
+            return Response(empty_result, status=status.HTTP_404_NOT_FOUND)
 
 
 # ── Public: Egg Info (no auth required) ──────────────────

@@ -120,15 +120,14 @@ function ConfettiEffect() {
  */
 function RedeemLanding({ code }) {
     const navigate = useNavigate();
+    const redirect = encodeURIComponent(`/redeem/${code}`);
 
     const handleLogin = () => {
-        localStorage.setItem('redirect_after_login', `/redeem/${code}`);
-        navigate('/login');
+        navigate(`/login?redirect=${redirect}`);
     };
 
     const handleRegister = () => {
-        localStorage.setItem('redirect_after_login', `/redeem/${code}`);
-        navigate('/register');
+        navigate(`/register?redirect=${redirect}`);
     };
 
     return (
@@ -302,7 +301,6 @@ export default function Redeem() {
                                 id="rickroll-video"
                                 src={`${backendUrl}/media/rickroll.mp4`}
                                 autoPlay
-                                muted
                                 controls
                                 playsInline
                                 style={{ width: '100%', borderRadius: 'var(--radius)', display: 'block', backgroundColor: '#000' }}
@@ -315,7 +313,6 @@ export default function Redeem() {
                             <video
                                 src={result.custom_video_url}
                                 autoPlay
-                                muted
                                 controls
                                 playsInline
                                 style={{ width: '100%', borderRadius: 'var(--radius)', display: 'block', backgroundColor: '#000' }}

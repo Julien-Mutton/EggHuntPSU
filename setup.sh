@@ -25,9 +25,9 @@ echo "  ✓ python3, node, npm, psql found"
 echo ""
 echo "▸ Setting up PostgreSQL database..."
 
-# Source backend .env for DB credentials
-if [ -f "$ROOT_DIR/backend/.env" ]; then
-  export $(grep -v '^#' "$ROOT_DIR/backend/.env" | xargs)
+# Source root .env for DB credentials
+if [ -f "$ROOT_DIR/.env" ]; then
+  export $(grep -v '^#' "$ROOT_DIR/.env" | xargs)
 fi
 
 DB_NAME="${DB_NAME:-egghunt}"
@@ -49,7 +49,7 @@ fi
 echo ""
 echo "▸ Setting up backend..."
 
-cd "$ROOT_DIR/backend"
+cd "$ROOT_DIR"
 
 if [ ! -d "venv" ]; then
   echo "  Creating virtual environment..."
@@ -58,9 +58,10 @@ fi
 
 echo "  Installing Python dependencies..."
 source venv/bin/activate
-pip install -r requirements.txt --quiet
+pip install -r backend/requirements.txt --quiet
 
 echo "  Running database migrations..."
+cd "$ROOT_DIR/backend"
 python manage.py migrate --no-input
 
 echo "  Seeding test data..."

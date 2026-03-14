@@ -1,7 +1,7 @@
 /**
  * ProtectedRoute — redirects to login if unauthenticated.
  * Optionally checks for admin role.
- * Preserves current location for post-login redirect.
+ * Preserves current path as ?redirect= query param for post-login redirect.
  */
 
 import { Navigate, useLocation } from 'react-router-dom';
@@ -21,9 +21,8 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     }
 
     if (!user) {
-        // Preserve redirect target for redemption flow
-        localStorage.setItem('redirect_after_login', location.pathname);
-        return <Navigate to="/login" replace />;
+        const redirect = encodeURIComponent(location.pathname);
+        return <Navigate to={`/login?redirect=${redirect}`} replace />;
     }
 
     if (adminOnly && user.role !== 'adm') {

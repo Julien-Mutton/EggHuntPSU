@@ -1,6 +1,6 @@
 /**
  * AuthContext — manages JWT auth state, login, register, logout, and OAuth.
- * Preserves redirect URL for post-login redemption flow.
+ * Post-login redirect is handled declaratively by PostAuthRedirect in App.jsx.
  */
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -14,7 +14,6 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    // Fetch current user from /api/auth/me/
     const fetchUser = useCallback(async () => {
         const token = localStorage.getItem('access_token');
         if (!token) {
@@ -38,34 +37,17 @@ export function AuthProvider({ children }) {
     }, [fetchUser]);
 
     const login = async (username, password) => {
-        const { data } = await api.post('/auth/login/', { username, password });
+        const { data } = await api.post('/auth/login/', { username: username.toLowerCase(), password });
         localStorage.setItem('access_token', data.access);
         localStorage.setItem('refresh_token', data.refresh);
         await fetchUser();
-
-        // Resume redirect if there's a saved path
-        const redirect = localStorage.getItem('redirect_after_login');
-        if (redirect) {
-            localStorage.removeItem('redirect_after_login');
-            navigate(redirect);
-        } else {
-            navigate('/dashboard');
-        }
     };
 
     const register = async (username, email, password) => {
-        const { data } = await api.post('/auth/register/', { username, email, password });
+        const { data } = await api.post('/auth/register/', { username: username.toLowerCase(), email, password });
         localStorage.setItem('access_token', data.tokens.access);
         localStorage.setItem('refresh_token', data.tokens.refresh);
         setUser(data.user);
-
-        const redirect = localStorage.getItem('redirect_after_login');
-        if (redirect) {
-            localStorage.removeItem('redirect_after_login');
-            navigate(redirect);
-        } else {
-            navigate('/dashboard');
-        }
     };
 
     const socialLogin = async (accessToken, provider) => {
@@ -77,14 +59,6 @@ export function AuthProvider({ children }) {
         localStorage.setItem('access_token', data.tokens.access);
         localStorage.setItem('refresh_token', data.tokens.refresh);
         setUser(data.user);
-
-        const redirect = localStorage.getItem('redirect_after_login');
-        if (redirect) {
-            localStorage.removeItem('redirect_after_login');
-            navigate(redirect);
-        } else {
-            navigate('/dashboard');
-        }
     };
 
     const logout = () => {

@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/axios';
-import { FiPackage, FiCheckCircle, FiUsers, FiGift } from 'react-icons/fi';
+import { FiPackage, FiCheckCircle, FiGift } from 'react-icons/fi';
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState({ total: 0, redeemed: 0, unclaimed: 0 });
@@ -13,7 +13,7 @@ export default function AdminDashboard() {
 
 
     useEffect(() => {
-        api.get('/admin/eggs/?page_size=1000')
+        api.get('/admin/eggs/?page_size=10000')
             .then(({ data }) => {
                 const eggs = data.results || data;
                 const redeemed = eggs.filter(e => e.is_redeemed).length;

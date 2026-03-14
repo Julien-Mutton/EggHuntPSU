@@ -4,9 +4,18 @@ Serializers for user registration, profile, and social auth.
 
 import re
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+class CaseInsensitiveTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Lowercases the username before authentication so login is case-insensitive."""
+
+    def validate(self, attrs):
+        attrs[self.username_field] = attrs.get(self.username_field, '').lower()
+        return super().validate(attrs)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -18,17 +27,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'email', 'password')
 
     def validate_username(self, value):
-        # 1) Trim outer whitespace
-        # 2) Convert any internal blocks of whitespace to a single underscore
-        normalized = re.sub(r'\s+', '_', value.strip())
+        normalized = re.sub(r'\s+', '_', value.strip()).lower()
 
         if not normalized:
             raise serializers.ValidationError("Username cannot be entirely blank spaces.")
 
-        # Check for duplication (case-insensitive for safety)
-        if User.objects.filter(username__iexact=normalized).exists():
+        if User.objects.filter(username=normalized).exists():
             raise serializers.ValidationError("This username is already taken.")
-            
+
         return normalized
 
     def create(self, validated_data):

@@ -64,6 +64,9 @@ class EggQRCode(models.Model):
         help_text='If True, redirects the user to Rick Astley after redemption.',
     )
 
+    # Export tracking
+    exported_to_pdf = models.BooleanField(default=False)
+
     # Status
     is_active = models.BooleanField(default=True)
 

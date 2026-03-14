@@ -37,12 +37,12 @@ class EggSerializer(serializers.ModelSerializer):
             'label_text', 'is_redeemed', 'redeemed_by', 'redeemed_by_username',
             'redeemed_at', 'show_gif', 'gif_url', 'gif_file', 'gif', 'local_video_path', 'custom_video', 'video_url',
             'rarity', 'reward_message', 'is_rickroll',
-            'is_active', 'created_by', 'created_by_username',
+            'exported_to_pdf', 'is_active', 'created_by', 'created_by_username',
             'created_at', 'updated_at', 'qr_url', 'reward_links',
         )
         read_only_fields = (
             'id', 'code_identifier', 'is_redeemed', 'redeemed_by',
-            'redeemed_at', 'created_by', 'created_at', 'updated_at',
+            'redeemed_at', 'exported_to_pdf', 'created_by', 'created_at', 'updated_at',
         )
 
     def get_gif(self, obj):

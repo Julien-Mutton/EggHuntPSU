@@ -3,13 +3,14 @@
  */
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { loginWithMicrosoft } from '../lib/msal';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function Login() {
     const { login, socialLogin } = useAuth();
+    const location = useLocation();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -123,7 +124,7 @@ export default function Login() {
                 )}
 
                 <div className="auth-footer">
-                    <p>Don't have an account? <Link to="/register">Sign up</Link></p>
+                    <p>Don't have an account? <Link to={`/register${location.search}`}>Sign up</Link></p>
                 </div>
 
                 <div className="auth-sponsors" style={{ marginTop: '2rem', textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>

@@ -2,7 +2,7 @@
  * App — main routing configuration.
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
@@ -30,6 +30,15 @@ import RedemptionTracking from './pages/admin/RedemptionTracking';
 import PrizeManager from './pages/admin/PrizeManager';
 import AdminEmail from './pages/admin/AdminEmail';
 
+function PostAuthRedirect({ user }) {
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get('redirect');
+  if (redirect && redirect.startsWith('/')) {
+    return <Navigate to={redirect} replace />;
+  }
+  return <Navigate to={user.role === 'adm' ? '/admin' : '/dashboard'} replace />;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
 
@@ -45,8 +54,8 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/login" element={user ? <Navigate to={user.role === 'adm' ? '/admin' : '/dashboard'} /> : <Login />} />
-      <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
+      <Route path="/login" element={user ? <PostAuthRedirect user={user} /> : <Login />} />
+      <Route path="/register" element={user ? <PostAuthRedirect user={user} /> : <Register />} />
 
       {/* Redeem route — public (landing page handles unauthenticated users) */}
       <Route path="/redeem/:code" element={<Redeem />} />

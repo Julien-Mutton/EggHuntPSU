@@ -29,7 +29,7 @@ echo ""
 echo "▸ Opening backend terminal (Django @ http://localhost:8000)..."
 gnome-terminal --title="🥚 Egg Hunt — Backend" -- bash -c "
   cd '$ROOT_DIR/backend'
-  source venv/bin/activate
+  source '$ROOT_DIR/venv/bin/activate'
   echo '🥚  Egg Hunt — Backend Server'
   echo '════════════════════════════════════════'
   echo ''
@@ -50,7 +50,7 @@ gnome-terminal --title="🥚 Egg Hunt — Frontend" -- bash -c "
   echo ''
   echo 'Frontend URL: https://$FRONTEND_DOMAIN'
   echo ''
-  npx vite --host
+  npm run dev -- --host
   echo ''
   echo 'Server stopped. Press Enter to close.'
   read

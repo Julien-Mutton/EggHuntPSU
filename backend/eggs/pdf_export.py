@@ -34,7 +34,7 @@ def export_eggs_pdf(eggs):
     # Maintain aspect ratio (400x500 approx) for the cell itself
     # Let's say we want the image to be 1.5 inches wide, it should be 1.875 inches tall
     target_img_w = cell_w * 0.85
-    target_img_h = target_img_w * (600 / 450) # Matching the ratio from qr_utils.py (450:600)
+    target_img_h = target_img_w * (510 / 450)
     
     cell_h = target_img_h + 30 # adding space for titles
     
