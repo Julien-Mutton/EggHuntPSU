@@ -17,9 +17,11 @@ PID_DIR="$ROOT_DIR/.pids"
 
 mkdir -p "$LOG_DIR" "$PID_DIR"
 
-# ── Load .env ────────────────────────────────────────────
+# ── Load .env (handles quoted values with spaces) ────────
 if [ -f "$ROOT_DIR/.env" ]; then
-  export $(grep -v '^#' "$ROOT_DIR/.env" | xargs)
+  set -a
+  source "$ROOT_DIR/.env"
+  set +a
 fi
 
 # ── Helpers ──────────────────────────────────────────────
@@ -59,6 +61,11 @@ stop_all() {
   exit 0
 }
 
+# Extract domain from a URL (https://foo.bar.com → foo.bar.com)
+domain_from_url() {
+  echo "$1" | sed 's|https\?://||' | sed 's|/.*||'
+}
+
 # ── Handle --stop ────────────────────────────────────────
 if [ "$1" = "--stop" ]; then
   stop_all
@@ -87,14 +94,22 @@ start_process "frontend" \
   "$ROOT_DIR/frontend"
 
 # ── Start ngrok tunnels (optional) ──────────────────────
+BACKEND_DOMAIN=""
+FRONTEND_DOMAIN=""
+
 if $USE_NGROK; then
   if ! command -v ngrok &>/dev/null; then
     echo ""
     echo "❌ ngrok is not installed. Install from https://ngrok.com/download"
     echo "   Skipping tunnels — servers are running on LAN only."
   else
-    BACKEND_DOMAIN="${NGROK_BACKEND_DOMAIN:-}"
-    FRONTEND_DOMAIN="${NGROK_FRONTEND_DOMAIN:-}"
+    # Extract domains from BACKEND_URL / FRONTEND_URL if they contain ngrok
+    if echo "$BACKEND_URL" | grep -q 'ngrok'; then
+      BACKEND_DOMAIN="$(domain_from_url "$BACKEND_URL")"
+    fi
+    if echo "$FRONTEND_URL" | grep -q 'ngrok'; then
+      FRONTEND_DOMAIN="$(domain_from_url "$FRONTEND_URL")"
+    fi
 
     echo ""
     echo "▸ Starting ngrok tunnels..."
@@ -121,8 +136,18 @@ if $USE_NGROK; then
   fi
 fi
 
+# ── Wait and verify backend is alive ────────────────────
+sleep 2
+BACKEND_PID_FILE="$PID_DIR/backend.pid"
+if [ -f "$BACKEND_PID_FILE" ] && ! kill -0 "$(cat "$BACKEND_PID_FILE")" 2>/dev/null; then
+  echo ""
+  echo "⚠  Backend crashed on startup. Last 20 lines of logs/backend.log:"
+  echo "────────────────────────────────────────"
+  tail -20 "$LOG_DIR/backend.log" 2>/dev/null || echo "(no log output)"
+  echo "────────────────────────────────────────"
+fi
+
 # ── Summary ──────────────────────────────────────────────
-sleep 1
 echo ""
 echo "════════════════════════════════════════"
 echo "🚀  Services running!"
