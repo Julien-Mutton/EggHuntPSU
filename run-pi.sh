@@ -3,6 +3,7 @@
 #  Egg Hunt — Raspberry Pi Deployment
 #
 #  Usage:
+#    ./run-pi.sh setup      First-time setup
 #    ./run-pi.sh            Start all services + ngrok
 #    ./run-pi.sh stop       Stop everything
 #    ./run-pi.sh status     Check what's running
@@ -39,9 +40,72 @@ kill_saved() {
 }
 
 # ──────────────────────────────────────────────────────
-#  Commands
-# ──────────────────────────────────────────────────────
 case "${1:-start}" in
+
+# ── SETUP ─────────────────────────────────────────────
+setup)
+  set -e
+  echo ""
+  echo "Egg Hunt — First-Time Setup"
+  echo "────────────────────────────────"
+
+  # Prerequisites
+  echo ""
+  echo "Checking prerequisites..."
+  command -v python3 >/dev/null 2>&1 || { echo "  ✗ python3 not found"; exit 1; }
+  command -v node    >/dev/null 2>&1 || { echo "  ✗ node not found"; exit 1; }
+  command -v npm     >/dev/null 2>&1 || { echo "  ✗ npm not found"; exit 1; }
+  command -v psql    >/dev/null 2>&1 || { echo "  ✗ psql not found"; exit 1; }
+  echo "  ✓ python3, node, npm, psql"
+
+  # Database
+  echo ""
+  echo "Setting up database..."
+  DB_NAME="${DB_NAME:-egghunt}"
+  DB_USER="${DB_USER:-postgres}"
+  DB_HOST="${DB_HOST:-localhost}"
+  DB_PORT="${DB_PORT:-5432}"
+
+  if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+    echo "  ✓ Database '$DB_NAME' exists"
+  else
+    PGPASSWORD="$DB_PASSWORD" createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$DB_NAME" 2>/dev/null \
+      && echo "  ✓ Database '$DB_NAME' created" \
+      || echo "  ✗ Could not create database — create it manually: createdb -U $DB_USER $DB_NAME"
+  fi
+
+  # Backend
+  echo ""
+  echo "Setting up backend..."
+  cd "$DIR/backend"
+  if [ ! -d "venv" ]; then
+    python3 -m venv venv
+    echo "  ✓ Virtual environment created"
+  fi
+  . venv/bin/activate
+  pip install -r requirements.txt --quiet
+  echo "  ✓ Dependencies installed"
+  python manage.py migrate --no-input
+  echo "  ✓ Migrations applied"
+  python manage.py seed 2>/dev/null && echo "  ✓ Test data seeded" || echo "  ⊘ Seed skipped (already exists)"
+  deactivate
+
+  # Frontend
+  echo ""
+  echo "Setting up frontend..."
+  cd "$DIR/frontend"
+  npm install --silent
+  echo "  ✓ Node dependencies installed"
+
+  echo ""
+  echo "────────────────────────────────"
+  echo "Setup complete. Run:  ./run-pi.sh"
+  echo ""
+  echo "Test accounts:"
+  echo "  admin / admin123   (Admin)"
+  echo "  alice / password123 (User)"
+  echo "────────────────────────────────"
+  ;;
 
 # ── STOP ──────────────────────────────────────────────
 stop)
@@ -71,9 +135,8 @@ status)
 
 # ── START ─────────────────────────────────────────────
 start)
-  # Preflight checks
   ERRORS=""
-  [ -z "$PYTHON" ]                          && ERRORS="${ERRORS}  • Python venv not found (run setup.sh first)\n"
+  [ -z "$PYTHON" ]                          && ERRORS="${ERRORS}  • Python venv not found (run ./run-pi.sh setup)\n"
   ! command -v ngrok >/dev/null 2>&1        && ERRORS="${ERRORS}  • ngrok is not installed\n"
   ! command -v npm   >/dev/null 2>&1        && ERRORS="${ERRORS}  • npm is not installed\n"
   [ -z "$BACKEND_DOMAIN" ]                  && ERRORS="${ERRORS}  • BACKEND_URL not set in .env\n"
@@ -85,8 +148,11 @@ start)
     exit 1
   fi
 
-  # Stop leftovers from a previous run
   kill_saved
+  for port in 8000 5173; do
+    pid="$(lsof -t -i:"$port" 2>/dev/null)"
+    [ -n "$pid" ] && kill $pid 2>/dev/null
+  done
   mkdir -p "$LOGDIR"
   : > "$PIDFILE"
 
@@ -94,7 +160,6 @@ start)
   echo "Egg Hunt — Starting services"
   echo "────────────────────────────────"
 
-  # 1) Backend — Django on port 8000
   cd "$DIR/backend"
   nohup "$PYTHON" manage.py runserver --noreload 0.0.0.0:8000 \
     > "$LOGDIR/backend.log" 2>&1 &
@@ -102,27 +167,23 @@ start)
   echo "$BACKEND_PID" >> "$PIDFILE"
   echo "  backend        pid $BACKEND_PID"
 
-  # 2) Frontend — Vite on port 5173
   cd "$DIR/frontend"
   nohup npx vite --host \
     > "$LOGDIR/frontend.log" 2>&1 &
   echo "$!" >> "$PIDFILE"
   echo "  frontend       pid $!"
 
-  # 3) ngrok tunnel → backend
   cd "$DIR"
   nohup ngrok http --url "https://$BACKEND_DOMAIN" 8000 \
     > "$LOGDIR/ngrok-backend.log" 2>&1 &
   echo "$!" >> "$PIDFILE"
   echo "  ngrok → :8000  pid $!"
 
-  # 4) ngrok tunnel → frontend
   nohup ngrok http --url "https://$FRONTEND_DOMAIN" 5173 \
     > "$LOGDIR/ngrok-frontend.log" 2>&1 &
   echo "$!" >> "$PIDFILE"
   echo "  ngrok → :5173  pid $!"
 
-  # Give the backend a moment to boot
   echo ""
   echo "  Waiting for backend..."
   sleep 4
@@ -151,7 +212,7 @@ start)
   ;;
 
 *)
-  echo "Usage: ./run-pi.sh [start|stop|status]"
+  echo "Usage: ./run-pi.sh [setup|start|stop|status]"
   ;;
 
 esac

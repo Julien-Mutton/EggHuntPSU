@@ -97,35 +97,37 @@ export default function EggExport() {
                 </div>
             </div>
 
-            <div className="export-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div className="filter-bar">
-                        {[
-                            { key: 'not_exported', label: 'Not Exported' },
-                            { key: 'exported', label: 'Exported' },
-                            { key: 'all', label: 'All' },
-                        ].map(f => (
-                            <button key={f.key} className={`filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
-                                {f.label}
-                            </button>
-                        ))}
-                    </div>
-                    <select value={rarity} onChange={e => setRarity(e.target.value)} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)' }}>
-                        <option value="all">All Rarities</option>
-                        <option value="common">Common</option>
-                        <option value="uncommon">Uncommon</option>
-                        <option value="rare">Rare</option>
-                        <option value="legendary">Legendary</option>
-                    </select>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-secondary" onClick={selectAll}>
-                        {allFilteredSelected ? 'Deselect All' : 'Select All'}
+            <div className="filter-bar">
+                {[
+                    { key: 'not_exported', label: 'Not Exported' },
+                    { key: 'exported', label: 'Exported' },
+                    { key: 'all', label: 'All' },
+                ].map(f => (
+                    <button key={f.key} className={`filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
+                        {f.label}
                     </button>
-                    <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
-                        {exporting ? 'Generating PDF...' : `Export ${selected.length > 0 ? selected.length : 'All Unclaimed'} as PDF`}
+                ))}
+                <span className="filter-separator" />
+                {[
+                    { key: 'all', label: 'All Rarities' },
+                    { key: 'common', label: 'Common' },
+                    { key: 'uncommon', label: 'Uncommon' },
+                    { key: 'rare', label: 'Rare' },
+                    { key: 'legendary', label: 'Legendary' },
+                ].map(r => (
+                    <button key={r.key} className={`filter-btn ${rarity === r.key ? 'active' : ''}`} onClick={() => setRarity(r.key)}>
+                        {r.label}
                     </button>
-                </div>
+                ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                <button className="btn btn-secondary" onClick={selectAll}>
+                    {allFilteredSelected ? 'Deselect All' : 'Select All'}
+                </button>
+                <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
+                    {exporting ? 'Generating PDF...' : `Export ${selected.length > 0 ? selected.length : 'All Unclaimed'} as PDF`}
+                </button>
             </div>
 
             {loading ? (
