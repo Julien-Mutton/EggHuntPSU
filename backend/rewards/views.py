@@ -1,5 +1,5 @@
 """
-Views for achievements (prizes), community links, global reward link claims, and sponsors.
+Views for achievements (prizes), global reward link claims, and sponsors.
 """
 
 from django.db import transaction
@@ -8,15 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdmin
-from .models import (
-    Prize, CommunityLink, GlobalRewardLink,
-    GlobalRewardLinkClaim, SponsorOrganization,
-)
-from .serializers import (
-    PrizeSerializer, PrizeAdminSerializer,
-    CommunityLinkSerializer, CommunityLinkAdminSerializer,
-    SponsorSerializer,
-)
+from .models import Prize, GlobalRewardLink, GlobalRewardLinkClaim, SponsorOrganization
+from .serializers import PrizeSerializer, PrizeAdminSerializer, SponsorSerializer
 
 
 # ── Achievements (Prizes) ──────────────────────────────────
@@ -38,28 +31,6 @@ class PrizeAdminDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PrizeAdminSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
     queryset = Prize.objects.all()
-
-
-# ── Community Links ─────────────────────────────────────────
-
-class CommunityLinkListView(generics.ListAPIView):
-    serializer_class = CommunityLinkSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def get_queryset(self):
-        return CommunityLink.objects.filter(is_active=True)
-
-
-class CommunityLinkAdminCreateView(generics.ListCreateAPIView):
-    serializer_class = CommunityLinkAdminSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdmin]
-    queryset = CommunityLink.objects.all()
-
-
-class CommunityLinkAdminDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = CommunityLinkAdminSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdmin]
-    queryset = CommunityLink.objects.all()
 
 
 # ── Global Reward Link Claims ───────────────────────────────

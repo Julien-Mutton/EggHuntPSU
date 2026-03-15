@@ -120,66 +120,8 @@ class Redemption(models.Model):
 
     def __str__(self):
         total = self.points_awarded + self.bonus_points_awarded
-        return f"{self.user.username} → {self.egg} (+{total})"
-
-
-class RewardLink(models.Model):
-    """Linktree-style custom links that show up when a specific egg is scanned.
-    Can optionally grant extra points when claimed. If is_unique_per_user is True,
-    each user can earn points from this link at most once.
-    """
-
-    egg = models.ForeignKey(
-        EggQRCode,
-        on_delete=models.CASCADE,
-        related_name='reward_links'
-    )
-    name = models.CharField(max_length=100)
-    url = models.URLField()
-    icon = models.CharField(
-        max_length=50,
-        blank=True, default='',
-        help_text="e.g. 'whatsapp', 'groupme', 'instagram', 'linktree', 'discord', 'twitter', 'facebook', 'link'"
-    )
-    order = models.IntegerField(default=0)
-    extra_points = models.PositiveIntegerField(
-        default=0,
-        help_text='Points awarded when user claims this link. 0 = no points.',
-    )
-    is_unique_per_user = models.BooleanField(
-        default=False,
-        help_text='If True, each user can earn points from this link at most once.',
-    )
-
-    class Meta:
-        ordering = ['order', 'id']
-
-    def __str__(self):
-        return f"{self.name} for {self.egg.title or self.egg.code_identifier}"
-
-
-class RewardLinkClaim(models.Model):
-    """Records when a user has claimed a reward link (for unique links, one per user)."""
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='reward_link_claims',
-    )
-    reward_link = models.ForeignKey(
-        RewardLink,
-        on_delete=models.CASCADE,
-        related_name='claims',
-    )
-    claimed_at = models.DateTimeField(auto_now_add=True)
-    points_awarded = models.PositiveIntegerField()
-
-    class Meta:
-        ordering = ['-claimed_at']
-        unique_together = ('user', 'reward_link')
-
-    def __str__(self):
-        return f"{self.user.username} claimed {self.reward_link.name} (+{self.points_awarded})"
+        name = self.user.username if self.user else 'Deleted User'
+        return f"{name} → {self.egg} (+{total})"
 
 
 @receiver(post_delete, sender=EggQRCode)

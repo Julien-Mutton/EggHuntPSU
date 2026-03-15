@@ -1,6 +1,6 @@
 """
-Models for the rewards system: achievements (prizes), community links,
-global reward links, and sponsor organizations.
+Models for the rewards system: achievements (prizes), global reward links,
+and sponsor organizations.
 """
 
 from django.db import models
@@ -27,39 +27,10 @@ class Prize(models.Model):
         return f"{self.name} ({self.points_required} pts)"
 
 
-class CommunityLink(models.Model):
-    """A configurable promotional/community link."""
-
-    ICON_CHOICES = (
-        ('whatsapp', 'WhatsApp'),
-        ('groupme', 'GroupMe'),
-        ('instagram', 'Instagram'),
-        ('linktree', 'Linktree'),
-        ('discord', 'Discord'),
-        ('twitter', 'Twitter'),
-        ('facebook', 'Facebook'),
-        ('link', 'Generic Link'),
-    )
-
-    name = models.CharField(max_length=100)
-    url = models.URLField()
-    icon = models.CharField(max_length=50, choices=ICON_CHOICES, default='link')
-    description = models.CharField(max_length=300, blank=True, default='')
-    order = models.PositiveIntegerField(default=0)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['order', 'name']
-
-    def __str__(self):
-        return f"{self.name} ({self.icon})"
-
-
 class GlobalRewardLink(models.Model):
     """
     Global reward links shown after ANY egg is redeemed.
-    Managed via Django admin. Replaces per-egg RewardLink for new eggs.
+    Managed via Django admin.
     """
 
     ICON_CHOICES = (

@@ -177,7 +177,6 @@ export default function Redeem() {
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [communityLinks, setCommunityLinks] = useState([]);
     const [claimFeedback, setClaimFeedback] = useState({});
     const [claimingLinkId, setClaimingLinkId] = useState(null);
 
@@ -187,12 +186,6 @@ export default function Redeem() {
     }
 
     /* eslint-disable react-hooks/rules-of-hooks */
-
-    useEffect(() => {
-        api.get('/community-links/')
-            .then(({ data }) => setCommunityLinks(data.results || data))
-            .catch(() => {});
-    }, []);
 
     const isRedeeming = useRef(false);
 
@@ -272,7 +265,7 @@ export default function Redeem() {
     if (!result) return null;
 
     const rarity = RARITY_CONFIG[result.rarity] || RARITY_CONFIG.common;
-    const rewardLinks = result.reward_links?.length > 0 ? result.reward_links : communityLinks;
+    const rewardLinks = result.reward_links || [];
     const hasLinks = rewardLinks.length > 0;
     const embedUrl = normalizeVideoUrl(result.video_url);
 
@@ -359,7 +352,7 @@ export default function Redeem() {
                     {hasLinks && (
                         <div className="redeem-linktree">
                             <h3 className="linktree-heading">
-                                {result.reward_links?.length > 0 ? 'Your Rewards' : 'Join the Community'}
+                                Your Rewards
                             </h3>
                             <div className="linktree-links">
                                 {rewardLinks.map(link => {

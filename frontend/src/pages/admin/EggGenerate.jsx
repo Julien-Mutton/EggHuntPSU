@@ -315,7 +315,6 @@ export default function EggGenerate() {
                                     <th>Title</th>
                                     <th>Rarity</th>
                                     <th>Points</th>
-                                    <th>Links</th>
                                     <th>QR URL</th>
                                 </tr>
                             </thead>
@@ -326,7 +325,6 @@ export default function EggGenerate() {
                                         <td>{egg.title || '—'}</td>
                                         <td><span className={`badge badge-${egg.rarity}`}>{egg.rarity}</span></td>
                                         <td>{egg.points}</td>
-                                        <td>{(egg.reward_links || []).length}</td>
                                         <td><a href={egg.qr_url} target="_blank" rel="noreferrer" className="link">Open</a></td>
                                     </tr>
                                 ))}

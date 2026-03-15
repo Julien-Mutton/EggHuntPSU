@@ -1,9 +1,9 @@
 """
-Serializers for achievements (prizes), community links, global reward links, and sponsors.
+Serializers for achievements (prizes), global reward links, and sponsors.
 """
 
 from rest_framework import serializers
-from .models import Prize, CommunityLink, GlobalRewardLink, SponsorOrganization
+from .models import Prize, GlobalRewardLink, SponsorOrganization
 
 
 class PrizeSerializer(serializers.ModelSerializer):
@@ -39,18 +39,6 @@ class PrizeAdminSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'points_required', 'image',
             'is_active', 'created_at', 'updated_at',
         )
-
-
-class CommunityLinkSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CommunityLink
-        fields = ('id', 'name', 'url', 'icon', 'description', 'order', 'is_active')
-
-
-class CommunityLinkAdminSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CommunityLink
-        fields = ('id', 'name', 'url', 'icon', 'description', 'order', 'is_active', 'created_at')
 
 
 class GlobalRewardLinkSerializer(serializers.ModelSerializer):

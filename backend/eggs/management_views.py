@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from accounts.permissions import IsAdmin
-from .models import EggQRCode, RewardLink
+from .models import EggQRCode
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -17,20 +17,9 @@ User = get_user_model()
 
 def _serialize_egg(egg, include_state=True):
     """Serialize a single egg to a dict.
-    include_state=True  → full backup (preserves claimed status, code, etc.)
-    include_state=False → template (just the egg configuration, no state)
+    include_state=True  -> full backup (preserves claimed status, code, etc.)
+    include_state=False -> template (just the egg configuration, no state)
     """
-    links = []
-    for link in egg.reward_links.all():
-        links.append({
-            'name': link.name,
-            'url': link.url,
-            'icon': link.icon or '',
-            'order': link.order,
-            'extra_points': link.extra_points,
-            'is_unique_per_user': link.is_unique_per_user,
-        })
-
     data = {
         'title': egg.title,
         'points': egg.points,
@@ -43,7 +32,6 @@ def _serialize_egg(egg, include_state=True):
         'reward_message': egg.reward_message,
         'is_rickroll': egg.is_rickroll,
         'internal_note': egg.internal_note,
-        'reward_links': links,
     }
 
     if include_state:
@@ -79,7 +67,7 @@ class EggExportJsonView(APIView):
         else:
             eggs = EggQRCode.objects.all()
 
-        eggs = eggs.select_related('redeemed_by').prefetch_related('reward_links')
+        eggs = eggs.select_related('redeemed_by')
         egg_data = [_serialize_egg(egg, include_state=include_state) for egg in eggs]
         return Response(egg_data, status=status.HTTP_200_OK)
 
@@ -88,8 +76,8 @@ class EggImportJsonView(APIView):
     """
     POST /api/admin/eggs/import/json/
     Import eggs from JSON. Detects format automatically:
-    - If entries contain 'code_identifier' → full restore (preserves state).
-    - Otherwise → template import (creates fresh eggs with new codes).
+    - If entries contain 'code_identifier' -> full restore (preserves state).
+    - Otherwise -> template import (creates fresh eggs with new codes).
     """
     permission_classes = [IsAuthenticated, IsAdmin]
 
@@ -153,23 +141,6 @@ class EggImportJsonView(APIView):
 
                     egg = EggQRCode(**create_kwargs)
                     egg.save()
-
-                    links_data = egg_dict.get('reward_links', [])
-                    link_objs = []
-                    for link_data in links_data:
-                        link_objs.append(RewardLink(
-                            egg=egg,
-                            name=link_data.get('name', 'Link'),
-                            url=link_data.get('url', ''),
-                            icon=link_data.get('icon', ''),
-                            order=int(link_data.get('order', 0)),
-                            extra_points=int(link_data.get('extra_points', 0)),
-                            is_unique_per_user=bool(link_data.get('is_unique_per_user', False))
-                        ))
-
-                    if link_objs:
-                        RewardLink.objects.bulk_create(link_objs)
-
                     created_count += 1
 
         except Exception as e:

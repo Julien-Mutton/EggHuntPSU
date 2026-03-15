@@ -1406,122 +1406,6 @@ a:hover {
   font-style: italic;
 }
 
-/* ── Community Links ─────────────────────────────────────── */
-.community-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-}
-
-.community-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  text-decoration: none;
-  color: var(--text);
-  transition: all 0.25s;
-}
-
-.community-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--link-color, var(--primary));
-  color: var(--text);
-}
-
-.community-card-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.community-card-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.community-card-info h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 0.15rem;
-}
-
-.community-card-info p {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.community-card-arrow {
-  font-size: 1.25rem;
-  color: var(--text-muted);
-  transition: transform 0.2s;
-}
-
-.community-card:hover .community-card-arrow {
-  transform: translateX(3px);
-  color: var(--text);
-}
-
-/* Community links on redeem page */
-.redeem-community {
-  margin-bottom: 1.5rem;
-  text-align: center;
-}
-
-.community-label {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
-}
-
-.community-links-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-}
-
-.community-link-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-decoration: none;
-  transition: all 0.2s;
-}
-
-.community-link-chip:hover {
-  border-color: var(--primary);
-  color: var(--text);
-  background: var(--bg-card-hover);
-}
-
-.community-icon {
-  font-size: 1rem;
-}
-
 /* ── Welcome Modal ───────────────────────────────────────── */
 .modal-overlay {
   position: fixed;
@@ -2200,10 +2084,6 @@ a:hover {
   .points-divider {
     width: 80%;
     height: 1px;
-  }
-
-  .community-grid {
-    grid-template-columns: 1fr;
   }
 
   .modal-card {

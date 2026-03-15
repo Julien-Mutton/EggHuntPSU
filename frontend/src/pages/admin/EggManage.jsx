@@ -1,19 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../api/axios';
-import { FiX, FiPlus, FiTrash2, FiSave } from 'react-icons/fi';
+import { FiX, FiSave } from 'react-icons/fi';
 
 const RARITY_OPTIONS = ['common', 'uncommon', 'rare', 'legendary'];
-const ICON_OPTIONS = [
-    { value: '', label: 'None' },
-    { value: 'whatsapp', label: 'WhatsApp' },
-    { value: 'groupme', label: 'GroupMe' },
-    { value: 'instagram', label: 'Instagram' },
-    { value: 'linktree', label: 'Linktree' },
-    { value: 'discord', label: 'Discord' },
-    { value: 'twitter', label: 'Twitter' },
-    { value: 'facebook', label: 'Facebook' },
-    { value: 'link', label: 'Generic Link' },
-];
 
 export default function EggManage() {
     const [eggs, setEggs] = useState([]);
@@ -46,12 +35,7 @@ export default function EggManage() {
     useEffect(() => { loadEggs(); }, [loadEggs]);
 
     const openEditor = (egg) => {
-        setEditingEgg({
-            ...egg,
-            _links: egg.reward_links || [],
-            _newLinks: [],
-            _deletedLinkIds: [],
-        });
+        setEditingEgg({ ...egg });
     };
 
     const closeEditor = () => setEditingEgg(null);
@@ -61,40 +45,6 @@ export default function EggManage() {
         setEditingEgg(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : type === 'number' ? parseInt(value) || 0 : value,
-        }));
-    };
-
-    const handleLinkChange = (idx, field, value, isNew = false) => {
-        setEditingEgg(prev => {
-            const key = isNew ? '_newLinks' : '_links';
-            const links = [...prev[key]];
-            links[idx] = { ...links[idx], [field]: value };
-            return { ...prev, [key]: links };
-        });
-    };
-
-    const addNewLink = () => {
-        setEditingEgg(prev => ({
-            ...prev,
-            _newLinks: [...prev._newLinks, { name: '', url: '', icon: '', order: (prev._links.length + prev._newLinks.length), extra_points: 0, is_unique_per_user: false }],
-        }));
-    };
-
-    const removeExistingLink = (idx) => {
-        setEditingEgg(prev => {
-            const link = prev._links[idx];
-            return {
-                ...prev,
-                _links: prev._links.filter((_, i) => i !== idx),
-                _deletedLinkIds: link.id ? [...prev._deletedLinkIds, link.id] : prev._deletedLinkIds,
-            };
-        });
-    };
-
-    const removeNewLink = (idx) => {
-        setEditingEgg(prev => ({
-            ...prev,
-            _newLinks: prev._newLinks.filter((_, i) => i !== idx),
         }));
     };
 
@@ -115,36 +65,6 @@ export default function EggManage() {
                 reward_message: egg.reward_message,
                 is_rickroll: egg.is_rickroll,
             });
-
-            for (const id of egg._deletedLinkIds) {
-                await api.delete(`/admin/eggs/${egg.id}/links/${id}/`);
-            }
-
-            for (const link of egg._links) {
-                if (link.id) {
-                    await api.patch(`/admin/eggs/${egg.id}/links/${link.id}/`, {
-                        name: link.name,
-                        url: link.url,
-                        icon: link.icon || '',
-                        order: link.order,
-                        extra_points: link.extra_points ?? 0,
-                        is_unique_per_user: link.is_unique_per_user ?? false,
-                    });
-                }
-            }
-
-            for (const link of egg._newLinks) {
-                if (link.name && link.url) {
-                    await api.post(`/admin/eggs/${egg.id}/links/`, {
-                        name: link.name,
-                        url: link.url,
-                        icon: link.icon || '',
-                        order: link.order,
-                        extra_points: link.extra_points ?? 0,
-                        is_unique_per_user: link.is_unique_per_user ?? false,
-                    });
-                }
-            }
 
             closeEditor();
             loadEggs();
@@ -247,7 +167,6 @@ export default function EggManage() {
                                 <th>Rarity</th>
                                 <th>Status</th>
                                 <th>Redeemed By</th>
-                                <th>Links</th>
                                 <th>Created</th>
                             </tr>
                         </thead>
@@ -267,7 +186,6 @@ export default function EggManage() {
                                         )}
                                     </td>
                                     <td>{egg.redeemed_by_username || '—'}</td>
-                                    <td>{(egg.reward_links || []).length}</td>
                                     <td>{new Date(egg.created_at).toLocaleDateString()}</td>
                                 </tr>
                             ))}
@@ -365,64 +283,6 @@ export default function EggManage() {
                                 <textarea name="internal_note" value={editingEgg.internal_note} onChange={handleEggFieldChange} rows="2" placeholder="Admin-only notes" />
                             </div>
 
-                            <hr className="section-divider" />
-
-                            <div className="links-section">
-                                <div className="links-header">
-                                    <h3>Reward Links</h3>
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={addNewLink}><FiPlus /> Add Link</button>
-                                </div>
-
-                                {(editingEgg._links.length > 0 || editingEgg._newLinks.length > 0) && (
-                                    <div className="link-grid-header">
-                                        <span className="link-col-label link-col-name">Name</span>
-                                        <span className="link-col-label link-col-url">URL</span>
-                                        <span className="link-col-label link-col-icon">Icon</span>
-                                        <span className="link-col-label link-col-order">Order</span>
-                                        <span className="link-col-label link-col-pts">Bonus Pts</span>
-                                        <span className="link-col-label link-col-unique">Once</span>
-                                        <span className="link-col-label link-col-actions"></span>
-                                    </div>
-                                )}
-
-                                {editingEgg._links.map((link, idx) => (
-                                    <div key={link.id || `existing-${idx}`} className="link-row">
-                                        <input className="link-col-name" value={link.name} onChange={e => handleLinkChange(idx, 'name', e.target.value)} placeholder="Link name" aria-label="Link name" />
-                                        <input className="link-col-url" value={link.url} onChange={e => handleLinkChange(idx, 'url', e.target.value)} placeholder="https://..." aria-label="Link URL" />
-                                        <select className="link-col-icon" value={link.icon || ''} onChange={e => handleLinkChange(idx, 'icon', e.target.value)} aria-label="Icon type">
-                                            {ICON_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                        </select>
-                                        <input className="link-col-order" type="number" value={link.order} onChange={e => handleLinkChange(idx, 'order', parseInt(e.target.value) || 0)} aria-label="Display order" />
-                                        <input className="link-col-pts" type="number" min="0" value={link.extra_points ?? 0} onChange={e => handleLinkChange(idx, 'extra_points', parseInt(e.target.value) || 0)} aria-label="Bonus points" />
-                                        <label className="link-col-unique link-checkbox" title="Each user can earn points from this link at most once">
-                                            <input type="checkbox" checked={!!link.is_unique_per_user} onChange={e => handleLinkChange(idx, 'is_unique_per_user', e.target.checked)} />
-                                            <span>1x</span>
-                                        </label>
-                                        <button type="button" className="btn btn-sm btn-danger link-col-actions" onClick={() => removeExistingLink(idx)} aria-label="Remove link"><FiTrash2 /></button>
-                                    </div>
-                                ))}
-
-                                {editingEgg._newLinks.map((link, idx) => (
-                                    <div key={`new-${idx}`} className="link-row">
-                                        <input className="link-col-name" value={link.name} onChange={e => handleLinkChange(idx, 'name', e.target.value, true)} placeholder="Link name" aria-label="Link name" />
-                                        <input className="link-col-url" value={link.url} onChange={e => handleLinkChange(idx, 'url', e.target.value, true)} placeholder="https://..." aria-label="Link URL" />
-                                        <select className="link-col-icon" value={link.icon || ''} onChange={e => handleLinkChange(idx, 'icon', e.target.value, true)} aria-label="Icon type">
-                                            {ICON_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                        </select>
-                                        <input className="link-col-order" type="number" value={link.order} onChange={e => handleLinkChange(idx, 'order', parseInt(e.target.value) || 0, true)} aria-label="Display order" />
-                                        <input className="link-col-pts" type="number" min="0" value={link.extra_points ?? 0} onChange={e => handleLinkChange(idx, 'extra_points', parseInt(e.target.value) || 0, true)} aria-label="Bonus points" />
-                                        <label className="link-col-unique link-checkbox" title="Each user can earn points from this link at most once">
-                                            <input type="checkbox" checked={!!link.is_unique_per_user} onChange={e => handleLinkChange(idx, 'is_unique_per_user', e.target.checked, true)} />
-                                            <span>1x</span>
-                                        </label>
-                                        <button type="button" className="btn btn-sm btn-danger link-col-actions" onClick={() => removeNewLink(idx)} aria-label="Remove link"><FiTrash2 /></button>
-                                    </div>
-                                ))}
-
-                                {editingEgg._links.length === 0 && editingEgg._newLinks.length === 0 && (
-                                    <p className="text-muted" style={{ fontSize: '0.85rem', padding: '0.5rem 0' }}>No reward links. Click "Add Link" to attach links shown on redemption.</p>
-                                )}
-                            </div>
                         </div>
 
                         <div className="modal-footer">

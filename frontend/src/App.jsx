@@ -18,7 +18,6 @@ import ScanQR from './pages/ScanQR';
 import Leaderboard from './pages/Leaderboard';
 import Prizes from './pages/Prizes';
 import History from './pages/History';
-import Community from './pages/Community';
 import Account from './pages/Account';
 
 // Admin pages
@@ -72,7 +71,6 @@ function AppRoutes() {
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/achievements" element={<Prizes />} />
         <Route path="/history" element={<History />} />
-        <Route path="/community" element={<Community />} />
         <Route path="/account" element={<Account />} />
 
         {/* Admin routes */}

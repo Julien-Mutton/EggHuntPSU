@@ -4,17 +4,7 @@ Serializers for eggs, redemptions, and batch creation.
 
 from rest_framework import serializers
 from django.conf import settings
-from .models import EggQRCode, Redemption, RewardLink
-
-
-class RewardLinkSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RewardLink
-        fields = ('id', 'egg', 'name', 'url', 'icon', 'order', 'extra_points', 'is_unique_per_user')
-        extra_kwargs = {
-            'egg': {'required': False},
-            'icon': {'allow_blank': True},
-        }
+from .models import EggQRCode, Redemption
 
 
 class EggSerializer(serializers.ModelSerializer):
@@ -28,7 +18,6 @@ class EggSerializer(serializers.ModelSerializer):
     gif = serializers.SerializerMethodField()
     custom_video = serializers.SerializerMethodField()
     qr_url = serializers.SerializerMethodField()
-    reward_links = RewardLinkSerializer(many=True, read_only=True)
 
     class Meta:
         model = EggQRCode
@@ -38,7 +27,7 @@ class EggSerializer(serializers.ModelSerializer):
             'redeemed_at', 'show_gif', 'gif_url', 'gif_file', 'gif', 'local_video_path', 'custom_video', 'video_url',
             'rarity', 'reward_message', 'is_rickroll',
             'exported_to_pdf', 'is_active', 'created_by', 'created_by_username',
-            'created_at', 'updated_at', 'qr_url', 'reward_links',
+            'created_at', 'updated_at', 'qr_url',
         )
         read_only_fields = (
             'id', 'code_identifier', 'is_redeemed', 'redeemed_by',
@@ -66,18 +55,8 @@ class EggSerializer(serializers.ModelSerializer):
         return f"{frontend_url}/redeem/{obj.code_identifier}"
 
 
-class RewardLinkInputSerializer(serializers.Serializer):
-    """Input for a single reward link when creating eggs."""
-    name = serializers.CharField(max_length=100)
-    url = serializers.URLField()
-    icon = serializers.CharField(max_length=50, required=False, default='', allow_blank=True)
-    order = serializers.IntegerField(required=False, default=0)
-    extra_points = serializers.IntegerField(required=False, default=0, min_value=0)
-    is_unique_per_user = serializers.BooleanField(required=False, default=False)
-
-
 class RewardLinkRedemptionSerializer(serializers.Serializer):
-    """Reward link as shown after redemption, with already_claimed status."""
+    """Global reward link as shown after redemption, with already_claimed status."""
     id = serializers.IntegerField()
     name = serializers.CharField()
     url = serializers.URLField()
@@ -104,7 +83,6 @@ class EggGenerateSerializer(serializers.Serializer):
     )
     reward_message = serializers.CharField(required=False, default='', allow_blank=True)
     is_rickroll = serializers.BooleanField(required=False, default=False)
-    links = RewardLinkInputSerializer(many=True, required=False, default=list)
 
 
 class EggUpdateSerializer(serializers.ModelSerializer):
@@ -128,7 +106,6 @@ class EggUpdateSerializer(serializers.ModelSerializer):
 
 
 class RedemptionSerializer(serializers.ModelSerializer):
-    """Redemption record — for admin audit trail."""
     username = serializers.SerializerMethodField()
     egg_title = serializers.CharField(source='egg.title', read_only=True)
     egg_code = serializers.UUIDField(source='egg.code_identifier', read_only=True)
@@ -143,8 +120,9 @@ class RedemptionSerializer(serializers.ModelSerializer):
     def get_username(self, obj):
         return obj.user.username if obj.user else 'Deleted User'
 
+
 class RedemptionResultSerializer(serializers.Serializer):
-    """Response after a successful redemption."""
+    """Response after a redemption attempt."""
     success = serializers.BooleanField()
     message = serializers.CharField()
     points_earned = serializers.IntegerField()

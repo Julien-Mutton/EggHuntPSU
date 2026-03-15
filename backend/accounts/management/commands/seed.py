@@ -6,13 +6,13 @@ Usage: python manage.py seed
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from eggs.models import EggQRCode
-from rewards.models import Prize, CommunityLink, SponsorOrganization
+from rewards.models import Prize, SponsorOrganization
 
 User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Seed the database with test data (admin, users, eggs, prizes, community links).'
+    help = 'Seed the database with test data (admin, users, eggs, prizes, sponsors).'
 
     def handle(self, *args, **options):
         self.stdout.write('🌱 Seeding database...\n')
@@ -112,43 +112,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f'  ✓ {len(prizes)} prizes created'))
         else:
             self.stdout.write(f'  ⊘ Prizes already exist ({Prize.objects.count()} total)')
-
-        # ── Community Links ──────────────────────────────────
-        if CommunityLink.objects.count() == 0:
-            links = [
-                CommunityLink(
-                    name='WhatsApp Group',
-                    url='https://chat.whatsapp.com/example',
-                    icon='whatsapp',
-                    description='Join our WhatsApp group for updates',
-                    order=1,
-                ),
-                CommunityLink(
-                    name='GroupMe',
-                    url='https://groupme.com/join_group/example',
-                    icon='groupme',
-                    description='Chat with other egg hunters',
-                    order=2,
-                ),
-                CommunityLink(
-                    name='Instagram',
-                    url='https://instagram.com/egghuntpsu',
-                    icon='instagram',
-                    description='Follow us for event photos',
-                    order=3,
-                ),
-                CommunityLink(
-                    name='Linktree',
-                    url='https://linktr.ee/egghuntpsu',
-                    icon='linktree',
-                    description='All our links in one place',
-                    order=4,
-                ),
-            ]
-            CommunityLink.objects.bulk_create(links)
-            self.stdout.write(self.style.SUCCESS(f'  ✓ {len(links)} community links created'))
-        else:
-            self.stdout.write(f'  ⊘ Community links already exist ({CommunityLink.objects.count()} total)')
 
         # ── Sponsors ─────────────────────────────────────────
         if SponsorOrganization.objects.count() == 0:

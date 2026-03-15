@@ -14,11 +14,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdmin
-from .models import EggQRCode, Redemption, RewardLink, RewardLinkClaim
+from .models import EggQRCode, Redemption
 from .serializers import (
     EggSerializer, EggGenerateSerializer, EggUpdateSerializer,
     RedemptionSerializer, RedemptionResultSerializer, EggExportSerializer,
-    EggInfoSerializer, RewardLinkSerializer,
+    EggInfoSerializer,
 )
 from .pdf_export import export_eggs_pdf
 
@@ -32,17 +32,8 @@ class EggGenerateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
 
     def post(self, request):
-        logger.info(
-            "Egg creation attempt by %s (ID: %s) — payload: %s",
-            request.user.username, request.user.id, request.data,
-        )
-
         serializer = EggGenerateSerializer(data=request.data)
         if not serializer.is_valid():
-            logger.warning(
-                "Egg creation validation failed for %s: %s",
-                request.user.username, serializer.errors,
-            )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         d = serializer.validated_data
@@ -64,27 +55,6 @@ class EggGenerateView(APIView):
                     created_by=request.user,
                 ))
             created = EggQRCode.objects.bulk_create(eggs)
-            logger.info(
-                "Successfully created %d egg(s) by %s",
-                len(created), request.user.username,
-            )
-
-            # Create reward links for each egg if provided
-            links_input = d.get('links', [])
-            if links_input:
-                link_objs = []
-                for egg in created:
-                    for idx, link_data in enumerate(links_input):
-                        link_objs.append(RewardLink(
-                            egg=egg,
-                            name=link_data['name'],
-                            url=link_data['url'],
-                            icon=link_data.get('icon', ''),
-                            order=link_data.get('order', idx),
-                            extra_points=link_data.get('extra_points', 0),
-                            is_unique_per_user=link_data.get('is_unique_per_user', False),
-                        ))
-                RewardLink.objects.bulk_create(link_objs)
         except Exception:
             logger.exception("Database error during egg creation by %s", request.user.username)
             return Response(
@@ -92,12 +62,11 @@ class EggGenerateView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # Re-fetch eggs with reward_links for response
         ids = [e.id for e in created]
-        created_with_links = EggQRCode.objects.prefetch_related('reward_links').filter(id__in=ids)
+        created_qs = EggQRCode.objects.filter(id__in=ids)
         return Response({
             'created': len(created),
-            'eggs': EggSerializer(created_with_links, many=True, context={'request': request}).data,
+            'eggs': EggSerializer(created_qs, many=True, context={'request': request}).data,
         }, status=status.HTTP_201_CREATED)
 
 
@@ -110,13 +79,12 @@ class LocalVideoListView(APIView):
     def get(self, request):
         videos_dir = os.path.join(settings.MEDIA_ROOT, 'egg_videos')
         os.makedirs(videos_dir, exist_ok=True)
-        
         videos = []
         for filename in os.listdir(videos_dir):
             if filename.lower().endswith(('.mp4', '.webm', '.ogg')):
                 videos.append({'path': f'egg_videos/{filename}', 'name': filename})
-                
         return Response({'videos': videos})
+
 
 class EggListView(generics.ListAPIView):
     """GET /api/admin/eggs/ — List all eggs for admin."""
@@ -124,9 +92,7 @@ class EggListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
-        qs = EggQRCode.objects.select_related(
-            'redeemed_by', 'created_by',
-        ).prefetch_related('reward_links').all()
+        qs = EggQRCode.objects.select_related('redeemed_by', 'created_by').all()
         redeemed = self.request.query_params.get('redeemed')
         if redeemed is not None:
             qs = qs.filter(is_redeemed=redeemed.lower() in ('true', '1'))
@@ -139,14 +105,13 @@ class EggListView(generics.ListAPIView):
 class EggDetailView(generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/admin/eggs/<id>/ — View or update a single egg."""
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
-    queryset = EggQRCode.objects.select_related(
-        'redeemed_by', 'created_by',
-    ).prefetch_related('reward_links')
+    queryset = EggQRCode.objects.select_related('redeemed_by', 'created_by')
 
     def get_serializer_class(self):
         if self.request.method in ('PATCH', 'PUT'):
             return EggUpdateSerializer
         return EggSerializer
+
 
 # ── Admin: Export PDF ────────────────────────────────────────
 
@@ -165,73 +130,13 @@ class EggExportView(APIView):
             eggs = EggQRCode.objects.filter(is_redeemed=False, is_active=True)
 
         if not eggs.exists():
-            return Response(
-                {'error': 'No eggs to export.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({'error': 'No eggs to export.'}, status=status.HTTP_400_BAD_REQUEST)
 
         pdf_buf = export_eggs_pdf(eggs)
         eggs.update(exported_to_pdf=True)
         response = HttpResponse(pdf_buf.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="egg_hunt_qrcodes.pdf"'
         return response
-
-
-# ── User: Link Claim ──────────────────────────────────────────
-
-class LinkClaimView(APIView):
-    """
-    POST /api/links/<pk>/claim/
-    Claim a reward link: optionally earn extra points, then open redirect_url.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        try:
-            link = RewardLink.objects.get(pk=pk)
-        except RewardLink.DoesNotExist:
-            return Response(
-                {'detail': 'Link not found.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        redirect_url = link.url
-        user = request.user
-
-        if link.extra_points == 0:
-            return Response({
-                'success': True,
-                'redirect_url': redirect_url,
-            })
-
-        if link.is_unique_per_user and RewardLinkClaim.objects.filter(user=user, reward_link=link).exists():
-            return Response({
-                'success': True,
-                'already_claimed': True,
-                'redirect_url': redirect_url,
-            })
-
-        with transaction.atomic():
-            user.refresh_from_db()
-            user.total_points += link.extra_points
-            user.save(update_fields=['total_points'])
-            RewardLinkClaim.objects.create(
-                user=user,
-                reward_link=link,
-                points_awarded=link.extra_points,
-            )
-            
-            # Tie the bonus points back to the original Redemption log
-            redemption = Redemption.objects.filter(user=user, egg=link.egg).first()
-            if redemption:
-                redemption.bonus_points_awarded += link.extra_points
-                redemption.save(update_fields=['bonus_points_awarded'])
-
-        return Response({
-            'success': True,
-            'points_awarded': link.extra_points,
-            'redirect_url': redirect_url,
-        })
 
 
 # ── User: Redeem ─────────────────────────────────────────────
@@ -284,22 +189,17 @@ def _redeem_response(request, egg, user, *, success, message, points_earned, rew
 
 
 class RedeemView(APIView):
-    """
-    POST /api/redeem/<code_identifier>/
-    Atomic single-use egg redemption.
-    """
+    """POST /api/redeem/<code_identifier>/ — Atomic single-use egg redemption."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, code_identifier):
         user = request.user
-        logger.info("User %s (ID: %s) attempting to redeem egg: %s", user.username, user.id, code_identifier)
 
         try:
             with transaction.atomic():
                 egg = (
                     EggQRCode.objects
                     .select_for_update()
-                    .prefetch_related('reward_links')
                     .get(code_identifier=code_identifier)
                 )
 
@@ -344,7 +244,6 @@ class RedeemView(APIView):
                 )
 
         except EggQRCode.DoesNotExist:
-            logger.warning("Redemption failed: Code %s not found. User: %s", code_identifier, user.username)
             empty_result = RedemptionResultSerializer({
                 'success': False,
                 'message': 'Invalid QR code. This egg does not exist.',
@@ -366,10 +265,7 @@ class RedeemView(APIView):
 # ── Public: Egg Info (no auth required) ──────────────────
 
 class EggInfoView(APIView):
-    """
-    GET /api/eggs/info/<code_identifier>/
-    Public endpoint — returns minimal egg info for pre-redemption checks.
-    """
+    """GET /api/eggs/info/<code_identifier>/ — Public minimal egg info."""
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, code_identifier):
@@ -398,30 +294,4 @@ class UserRedemptionListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Redemption.objects.filter(
-            user=self.request.user
-        ).select_related('egg')
-
-
-# ── Admin: Reward Links CRUD ─────────────────────────────────
-
-class RewardLinkListCreateView(generics.ListCreateAPIView):
-    """GET/POST /api/admin/eggs/<egg_pk>/links/"""
-    serializer_class = RewardLinkSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdmin]
-
-    def get_queryset(self):
-        return RewardLink.objects.filter(egg_id=self.kwargs['egg_pk'])
-
-    def perform_create(self, serializer):
-        egg = generics.get_object_or_404(EggQRCode, pk=self.kwargs['egg_pk'])
-        serializer.save(egg=egg)
-
-
-class RewardLinkDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """GET/PATCH/DELETE /api/admin/eggs/<egg_pk>/links/<pk>/"""
-    serializer_class = RewardLinkSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdmin]
-
-    def get_queryset(self):
-        return RewardLink.objects.filter(egg_id=self.kwargs['egg_pk'])
+        return Redemption.objects.filter(user=self.request.user).select_related('egg')
