@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from .models import EggQRCode, Redemption
 
 
@@ -39,7 +39,7 @@ class EggQRCodeAdmin(admin.ModelAdmin):
         if obj.redeemed_by:
             return obj.redeemed_by.username
         if obj.is_redeemed:
-            return format_html('<em style="color:#999">Deleted User</em>')
+            return mark_safe('<em style="color:#999">Deleted User</em>')
         return '—'
 
 
@@ -56,4 +56,4 @@ class RedemptionAdmin(admin.ModelAdmin):
     def username_display(self, obj):
         if obj.user:
             return obj.user.username
-        return format_html('<em style="color:#999">Deleted User</em>')
+        return mark_safe('<em style="color:#999">Deleted User</em>')
