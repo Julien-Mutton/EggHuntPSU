@@ -3,12 +3,30 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
 import { FiLock, FiUnlock } from 'react-icons/fi';
 
+const EVENT_END = new Date('2026-04-06T23:59:59');
+
+function useCountdown(target) {
+    const [remaining, setRemaining] = useState(() => target - Date.now());
+    useEffect(() => {
+        const id = setInterval(() => setRemaining(target - Date.now()), 1000);
+        return () => clearInterval(id);
+    }, [target]);
+
+    if (remaining <= 0) return null;
+    const d = Math.floor(remaining / 86400000);
+    const h = Math.floor((remaining % 86400000) / 3600000);
+    const m = Math.floor((remaining % 3600000) / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    return { d, h, m, s };
+}
+
 export default function Leaderboard() {
     const { user } = useAuth();
     const [leaderboard, setLeaderboard] = useState([]);
     const [prizes, setPrizes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState('leaderboard');
+    const countdown = useCountdown(EVENT_END.getTime());
 
     useEffect(() => {
         Promise.all([
@@ -55,6 +73,37 @@ export default function Leaderboard() {
                 <div className="prizes-info-section">
                     <h2 style={{ marginBottom: '1rem' }}>🎁 Event Prizes</h2>
                     <p className="subtitle" style={{ marginBottom: '1.5rem' }}>Top hunters will receive real prizes at the end of the event!</p>
+
+                    {countdown ? (
+                        <div className="countdown-banner">
+                            <span className="countdown-label">Event ends in</span>
+                            <div className="countdown-units">
+                                <div className="countdown-unit">
+                                    <span className="countdown-value">{countdown.d}</span>
+                                    <span className="countdown-desc">days</span>
+                                </div>
+                                <span className="countdown-sep">:</span>
+                                <div className="countdown-unit">
+                                    <span className="countdown-value">{String(countdown.h).padStart(2, '0')}</span>
+                                    <span className="countdown-desc">hrs</span>
+                                </div>
+                                <span className="countdown-sep">:</span>
+                                <div className="countdown-unit">
+                                    <span className="countdown-value">{String(countdown.m).padStart(2, '0')}</span>
+                                    <span className="countdown-desc">min</span>
+                                </div>
+                                <span className="countdown-sep">:</span>
+                                <div className="countdown-unit">
+                                    <span className="countdown-value">{String(countdown.s).padStart(2, '0')}</span>
+                                    <span className="countdown-desc">sec</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="countdown-banner ended">
+                            <span className="countdown-label">The event has ended!</span>
+                        </div>
+                    )}
 
                     <div className="prize-info-grid">
                         <div className="prize-info-card gold">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../api/axios';
-import { FiX, FiSave } from 'react-icons/fi';
+import { FiX, FiSave, FiRefreshCw } from 'react-icons/fi';
 
 const RARITY_OPTIONS = ['common', 'uncommon', 'rare', 'legendary'];
 
@@ -46,6 +46,22 @@ export default function EggManage() {
             ...prev,
             [name]: type === 'checkbox' ? checked : type === 'number' ? parseInt(value) || 0 : value,
         }));
+    };
+
+    const [resetting, setResetting] = useState(false);
+
+    const resetEgg = async (id) => {
+        if (!confirm('Reset this egg? It will become unclaimed and the claimer will lose the points.')) return;
+        try {
+            setResetting(true);
+            await api.post(`/admin/eggs/${id}/reset/`);
+            closeEditor();
+            loadEggs();
+        } catch (err) {
+            alert('Reset failed: ' + (err.response?.data?.detail || err.message));
+        } finally {
+            setResetting(false);
+        }
     };
 
     const saveEgg = async () => {
@@ -203,6 +219,12 @@ export default function EggManage() {
                         </div>
 
                         <div className="egg-edit-body">
+                            {editingEgg.is_redeemed && (
+                                <div style={{ padding: '0.75rem 1rem', background: 'rgba(239, 68, 68, 0.06)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                    Claimed by <strong>{editingEgg.redeemed_by_username || 'Deleted User'}</strong>
+                                    {editingEgg.redeemed_at && <> on {new Date(editingEgg.redeemed_at).toLocaleString()}</>}
+                                </div>
+                            )}
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Title</label>
@@ -285,9 +307,18 @@ export default function EggManage() {
 
                         </div>
 
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={closeEditor}>Cancel</button>
-                            <button className="btn btn-primary" onClick={saveEgg}><FiSave /> Save Changes</button>
+                        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+                            <div>
+                                {editingEgg.is_redeemed && (
+                                    <button className="btn btn-danger" onClick={() => resetEgg(editingEgg.id)} disabled={resetting}>
+                                        <FiRefreshCw /> {resetting ? 'Resetting...' : 'Reset Egg'}
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button className="btn btn-secondary" onClick={closeEditor}>Cancel</button>
+                                <button className="btn btn-primary" onClick={saveEgg}><FiSave /> Save Changes</button>
+                            </div>
                         </div>
                     </div>
                 </div>

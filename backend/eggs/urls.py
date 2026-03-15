@@ -13,6 +13,7 @@ urlpatterns = [
     path('admin/eggs/videos/', views.LocalVideoListView.as_view(), name='egg-videos'),
     path('admin/eggs/export/json/', management_views.EggExportJsonView.as_view(), name='egg-export-json'),
     path('admin/eggs/import/json/', management_views.EggImportJsonView.as_view(), name='egg-import-json'),
+    path('admin/eggs/<int:pk>/reset/', views.EggResetView.as_view(), name='egg-reset'),
     path('admin/eggs/<int:pk>/', views.EggDetailView.as_view(), name='egg-detail'),
     path('admin/eggs/', views.EggListView.as_view(), name='egg-list'),
     path('admin/redemptions/', views.AdminRedemptionListView.as_view(), name='admin-redemptions'),

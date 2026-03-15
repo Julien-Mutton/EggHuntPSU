@@ -113,6 +113,43 @@ class EggDetailView(generics.RetrieveUpdateAPIView):
         return EggSerializer
 
 
+# ── Admin: Reset Egg ─────────────────────────────────────────
+
+class EggResetView(APIView):
+    """POST /api/admin/eggs/<id>/reset/ — Reset a claimed egg back to unclaimed."""
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        try:
+            egg = EggQRCode.objects.get(pk=pk)
+        except EggQRCode.DoesNotExist:
+            return Response({'detail': 'Egg not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not egg.is_redeemed:
+            return Response({'detail': 'This egg is not claimed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        old_user = egg.redeemed_by
+
+        with transaction.atomic():
+            if old_user:
+                points_to_remove = egg.points
+                old_user.refresh_from_db()
+                old_user.total_points = max(0, old_user.total_points - points_to_remove)
+                old_user.save(update_fields=['total_points'])
+
+            Redemption.objects.filter(egg=egg).delete()
+
+            egg.is_redeemed = False
+            egg.redeemed_by = None
+            egg.redeemed_at = None
+            egg.save(update_fields=['is_redeemed', 'redeemed_by', 'redeemed_at', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'message': f'Egg "{egg.title or str(egg.code_identifier)[:8]}" has been reset.',
+        })
+
+
 # ── Admin: Export PDF ────────────────────────────────────────
 
 class EggExportView(APIView):

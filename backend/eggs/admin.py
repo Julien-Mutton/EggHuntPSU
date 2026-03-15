@@ -11,7 +11,7 @@ class EggQRCodeAdmin(admin.ModelAdmin):
     )
     list_filter = ('is_redeemed', 'is_active', 'rarity', 'show_gif', 'is_rickroll', 'exported_to_pdf', 'created_at')
     search_fields = ('title', 'code_identifier', 'reward_message', 'redeemed_by__username')
-    readonly_fields = ('code_identifier', 'created_at', 'updated_at', 'redeemed_at')
+    readonly_fields = ('code_identifier', 'created_at', 'updated_at')
     list_per_page = 50
 
     fieldsets = (
