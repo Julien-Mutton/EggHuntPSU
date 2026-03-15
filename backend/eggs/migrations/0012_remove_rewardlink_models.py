@@ -10,13 +10,13 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='rewardlinkclaim',
-            name='reward_link',
-        ),
         migrations.AlterUniqueTogether(
             name='rewardlinkclaim',
             unique_together=None,
+        ),
+        migrations.RemoveField(
+            model_name='rewardlinkclaim',
+            name='reward_link',
         ),
         migrations.RemoveField(
             model_name='rewardlinkclaim',
