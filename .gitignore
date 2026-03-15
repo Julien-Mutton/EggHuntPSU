@@ -37,6 +37,11 @@ dist/
 *.swo
 *~
 
+# Runtime
+logs/
+.pids/
+.pids.txt
+
 # OS
 .DS_Store
 Thumbs.db

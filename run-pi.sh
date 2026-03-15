@@ -1,184 +1,157 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────
-#  Egg Hunt — Run on Raspberry Pi (or any headless Linux)
-#  Starts backend, frontend, and optionally ngrok tunnels
-#  as background processes. All output goes to logs/.
+# ──────────────────────────────────────────────────────
+#  Egg Hunt — Raspberry Pi Deployment
 #
 #  Usage:
-#    ./run-pi.sh              # local only
-#    ./run-pi.sh --ngrok      # with ngrok tunnels
-#    ./run-pi.sh --stop       # stop all services
-# ─────────────────────────────────────────────────────────
+#    ./run-pi.sh            Start all services + ngrok
+#    ./run-pi.sh stop       Stop everything
+#    ./run-pi.sh status     Check what's running
+# ──────────────────────────────────────────────────────
 
-ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-LOG_DIR="$ROOT_DIR/logs"
-PID_DIR="$ROOT_DIR/.pids"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PIDFILE="$DIR/.pids.txt"
+LOGDIR="$DIR/logs"
 
-mkdir -p "$LOG_DIR" "$PID_DIR"
+# ── Load .env ─────────────────────────────────────────
+[ -f "$DIR/.env" ] && { set -a; . "$DIR/.env"; set +a; }
 
-# ── Load .env ─────────────────────────────────────────────
-if [ -f "$ROOT_DIR/.env" ]; then
-  set -a
-  source "$ROOT_DIR/.env"
-  set +a
-fi
-
-# ── Helpers ───────────────────────────────────────────────
-stop_all() {
-  echo ""
-  echo "▸ Stopping services..."
-  for pidfile in "$PID_DIR"/*.pid; do
-    [ -f "$pidfile" ] || continue
-    name="$(basename "$pidfile" .pid)"
-    pid="$(cat "$pidfile")"
-    if kill -0 "$pid" 2>/dev/null; then
-      kill "$pid" 2>/dev/null
-      sleep 0.3
-      kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null
-      echo "  ✓ $name stopped (pid $pid)"
-    else
-      echo "  ⊘ $name was not running"
-    fi
-    rm -f "$pidfile"
-  done
-  echo ""
-  echo "All services stopped."
-  exit 0
-}
-
-# Extract domain from a URL (https://foo.bar.com → foo.bar.com)
-domain_from_url() {
-  echo "$1" | sed 's|https\?://||' | sed 's|/.*||'
-}
-
-launch() {
-  local name="$1" logfile="$LOG_DIR/$name.log" pidfile="$PID_DIR/$name.pid"
-  shift
-
-  if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
-    echo "  ⊘ $name already running (pid $(cat "$pidfile"))"
-    return
-  fi
-
-  "$@" > "$logfile" 2>&1 &
-  echo $! > "$pidfile"
-  echo "  ✓ $name started (pid $!) → logs/$name.log"
-}
-
-# ── Handle --stop ─────────────────────────────────────────
-if [ "$1" = "--stop" ]; then
-  stop_all
-fi
-
-# ── Clean stale PIDs before starting ──────────────────────
-for pidfile in "$PID_DIR"/*.pid; do
-  [ -f "$pidfile" ] || continue
-  pid="$(cat "$pidfile")"
-  if kill -0 "$pid" 2>/dev/null; then
-    kill "$pid" 2>/dev/null
-    sleep 0.3
-  fi
-  rm -f "$pidfile"
+# ── Find python venv ──────────────────────────────────
+PYTHON=""
+for p in "$DIR/backend/venv/bin/python" "$DIR/venv/bin/python"; do
+  [ -x "$p" ] && PYTHON="$p" && break
 done
 
-# ── Banner ────────────────────────────────────────────────
-USE_NGROK=false
-[ "$1" = "--ngrok" ] && USE_NGROK=true
+# ── Extract ngrok domains from URLs in .env ───────────
+BACKEND_DOMAIN="$(echo "${BACKEND_URL:-}" | sed 's|https\?://||;s|/.*||')"
+FRONTEND_DOMAIN="$(echo "${FRONTEND_URL:-}" | sed 's|https\?://||;s|/.*||')"
 
-echo ""
-echo "🥚  Egg Hunt — Raspberry Pi Launcher"
-echo "════════════════════════════════════════"
+# ── Kill previously saved PIDs ────────────────────────
+kill_saved() {
+  [ -f "$PIDFILE" ] || return 0
+  while IFS= read -r pid; do
+    [ -n "$pid" ] && kill "$pid" 2>/dev/null
+  done < "$PIDFILE"
+  sleep 0.5
+  while IFS= read -r pid; do
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null
+  done < "$PIDFILE"
+  rm -f "$PIDFILE"
+}
 
-# ── Pre-flight checks ────────────────────────────────────
-if [ -x "$ROOT_DIR/backend/venv/bin/python" ]; then
-  PYTHON="$ROOT_DIR/backend/venv/bin/python"
-elif [ -x "$ROOT_DIR/venv/bin/python" ]; then
-  PYTHON="$ROOT_DIR/venv/bin/python"
-else
+# ──────────────────────────────────────────────────────
+#  Commands
+# ──────────────────────────────────────────────────────
+case "${1:-start}" in
+
+# ── STOP ──────────────────────────────────────────────
+stop)
+  echo "Stopping all services..."
+  kill_saved
+  echo "Done."
+  ;;
+
+# ── STATUS ────────────────────────────────────────────
+status)
+  if [ ! -f "$PIDFILE" ]; then
+    echo "No services running."
+    exit 0
+  fi
+  NAMES=("backend" "frontend" "ngrok-backend" "ngrok-frontend")
+  i=0
+  while IFS= read -r pid; do
+    name="${NAMES[$i]:-service-$i}"
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      echo "  ✓ $name  (pid $pid)"
+    else
+      echo "  ✗ $name  (dead)"
+    fi
+    i=$((i + 1))
+  done < "$PIDFILE"
+  ;;
+
+# ── START ─────────────────────────────────────────────
+start)
+  # Preflight checks
+  ERRORS=""
+  [ -z "$PYTHON" ]                          && ERRORS="${ERRORS}  • Python venv not found (run setup.sh first)\n"
+  ! command -v ngrok >/dev/null 2>&1        && ERRORS="${ERRORS}  • ngrok is not installed\n"
+  ! command -v npm   >/dev/null 2>&1        && ERRORS="${ERRORS}  • npm is not installed\n"
+  [ -z "$BACKEND_DOMAIN" ]                  && ERRORS="${ERRORS}  • BACKEND_URL not set in .env\n"
+  [ -z "$FRONTEND_DOMAIN" ]                 && ERRORS="${ERRORS}  • FRONTEND_URL not set in .env\n"
+
+  if [ -n "$ERRORS" ]; then
+    echo "Cannot start — fix these first:"
+    printf "$ERRORS"
+    exit 1
+  fi
+
+  # Stop leftovers from a previous run
+  kill_saved
+  mkdir -p "$LOGDIR"
+  : > "$PIDFILE"
+
   echo ""
-  echo "❌ Python venv not found. Looked in:"
-  echo "     $ROOT_DIR/backend/venv/bin/python"
-  echo "     $ROOT_DIR/venv/bin/python"
-  echo "   Run ./setup.sh first."
-  exit 1
-fi
-echo "  Using python: $PYTHON"
+  echo "Egg Hunt — Starting services"
+  echo "────────────────────────────────"
 
-# ── Start Backend ─────────────────────────────────────────
-echo ""
-echo "▸ Starting backend..."
-cd "$ROOT_DIR/backend"
-launch "backend" "$PYTHON" manage.py runserver --noreload 0.0.0.0:8000
+  # 1) Backend — Django on port 8000
+  cd "$DIR/backend"
+  nohup "$PYTHON" manage.py runserver --noreload 0.0.0.0:8000 \
+    > "$LOGDIR/backend.log" 2>&1 &
+  BACKEND_PID=$!
+  echo "$BACKEND_PID" >> "$PIDFILE"
+  echo "  backend        pid $BACKEND_PID"
 
-# ── Start Frontend ────────────────────────────────────────
-echo ""
-echo "▸ Starting frontend..."
-cd "$ROOT_DIR/frontend"
-launch "frontend" npx vite --host
+  # 2) Frontend — Vite on port 5173
+  cd "$DIR/frontend"
+  nohup npx vite --host \
+    > "$LOGDIR/frontend.log" 2>&1 &
+  echo "$!" >> "$PIDFILE"
+  echo "  frontend       pid $!"
 
-# ── Start ngrok tunnels (optional) ────────────────────────
-BACKEND_DOMAIN=""
-FRONTEND_DOMAIN=""
+  # 3) ngrok tunnel → backend
+  cd "$DIR"
+  nohup ngrok http --url "https://$BACKEND_DOMAIN" 8000 \
+    > "$LOGDIR/ngrok-backend.log" 2>&1 &
+  echo "$!" >> "$PIDFILE"
+  echo "  ngrok → :8000  pid $!"
 
-if $USE_NGROK; then
-  if ! command -v ngrok &>/dev/null; then
-    echo ""
-    echo "❌ ngrok is not installed. Install from https://ngrok.com/download"
-    echo "   Skipping tunnels — servers are running on LAN only."
+  # 4) ngrok tunnel → frontend
+  nohup ngrok http --url "https://$FRONTEND_DOMAIN" 5173 \
+    > "$LOGDIR/ngrok-frontend.log" 2>&1 &
+  echo "$!" >> "$PIDFILE"
+  echo "  ngrok → :5173  pid $!"
+
+  # Give the backend a moment to boot
+  echo ""
+  echo "  Waiting for backend..."
+  sleep 4
+
+  if kill -0 "$BACKEND_PID" 2>/dev/null; then
+    echo "  backend ok ✓"
   else
-    if echo "$BACKEND_URL" | grep -q 'ngrok'; then
-      BACKEND_DOMAIN="$(domain_from_url "$BACKEND_URL")"
-    fi
-    if echo "$FRONTEND_URL" | grep -q 'ngrok'; then
-      FRONTEND_DOMAIN="$(domain_from_url "$FRONTEND_URL")"
-    fi
-
     echo ""
-    echo "▸ Starting ngrok tunnels..."
-    cd "$ROOT_DIR"
-
-    if [ -n "$BACKEND_DOMAIN" ]; then
-      launch "ngrok-backend" ngrok http --url="$BACKEND_DOMAIN" 8000
-    else
-      launch "ngrok-backend" ngrok http 8000
-    fi
-
-    if [ -n "$FRONTEND_DOMAIN" ]; then
-      launch "ngrok-frontend" ngrok http --url="$FRONTEND_DOMAIN" 5173
-    else
-      launch "ngrok-frontend" ngrok http 5173
-    fi
+    echo "  ✗ Backend crashed. Log output:"
+    echo "  ──────────────────────────────"
+    cat "$LOGDIR/backend.log" 2>/dev/null || echo "  (no output)"
+    echo "  ──────────────────────────────"
   fi
-fi
 
-# ── Verify backend is alive ──────────────────────────────
-sleep 3
-BPID_FILE="$PID_DIR/backend.pid"
-if [ -f "$BPID_FILE" ]; then
-  BPID="$(cat "$BPID_FILE")"
-  if ! kill -0 "$BPID" 2>/dev/null; then
-    echo ""
-    echo "⚠  Backend crashed on startup (pid $BPID)."
-    echo "── logs/backend.log ──────────────────────"
-    cat "$LOG_DIR/backend.log" 2>/dev/null || echo "(empty)"
-    echo "───────────────────────────────────────────"
-  fi
-fi
+  LAN="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  echo ""
+  echo "────────────────────────────────"
+  echo "  Frontend  https://$FRONTEND_DOMAIN"
+  echo "  Backend   https://$BACKEND_DOMAIN"
+  echo "  LAN       http://${LAN:-localhost}:5173"
+  echo ""
+  echo "  Logs      tail -f logs/backend.log"
+  echo "  Status    ./run-pi.sh status"
+  echo "  Stop      ./run-pi.sh stop"
+  echo "────────────────────────────────"
+  ;;
 
-# ── Summary ───────────────────────────────────────────────
-LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
-echo ""
-echo "════════════════════════════════════════"
-echo "🚀  Services running!"
-echo ""
-echo "   Frontend:  http://${LAN_IP:-localhost}:5173"
-echo "   Backend:   http://${LAN_IP:-localhost}:8000"
-if $USE_NGROK; then
-  [ -n "$FRONTEND_DOMAIN" ] && echo "   Tunnel:    https://$FRONTEND_DOMAIN"
-  [ -n "$BACKEND_DOMAIN" ]  && echo "   Tunnel:    https://$BACKEND_DOMAIN"
-fi
-echo ""
-echo "   Logs:      ls logs/"
-echo "   Tail:      tail -f logs/backend.log"
-echo "   Stop:      ./run-pi.sh --stop"
-echo "════════════════════════════════════════"
+*)
+  echo "Usage: ./run-pi.sh [start|stop|status]"
+  ;;
+
+esac
