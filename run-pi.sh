@@ -79,13 +79,19 @@ echo "🥚  Egg Hunt — Raspberry Pi Launcher"
 echo "════════════════════════════════════════"
 
 # ── Pre-flight checks ────────────────────────────────────
-PYTHON="$ROOT_DIR/venv/bin/python"
-if [ ! -x "$PYTHON" ]; then
+if [ -x "$ROOT_DIR/backend/venv/bin/python" ]; then
+  PYTHON="$ROOT_DIR/backend/venv/bin/python"
+elif [ -x "$ROOT_DIR/venv/bin/python" ]; then
+  PYTHON="$ROOT_DIR/venv/bin/python"
+else
   echo ""
-  echo "❌ Python venv not found at: $PYTHON"
+  echo "❌ Python venv not found. Looked in:"
+  echo "     $ROOT_DIR/backend/venv/bin/python"
+  echo "     $ROOT_DIR/venv/bin/python"
   echo "   Run ./setup.sh first."
   exit 1
 fi
+echo "  Using python: $PYTHON"
 
 # ── Start Backend ─────────────────────────────────────────
 echo ""
