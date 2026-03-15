@@ -70,6 +70,17 @@ if [ "$1" = "--stop" ]; then
   stop_all
 fi
 
+# ── Clean stale PIDs before starting ──────────────────────
+for pidfile in "$PID_DIR"/*.pid; do
+  [ -f "$pidfile" ] || continue
+  pid="$(cat "$pidfile")"
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null
+    sleep 0.3
+  fi
+  rm -f "$pidfile"
+done
+
 # ── Banner ────────────────────────────────────────────────
 USE_NGROK=false
 [ "$1" = "--ngrok" ] && USE_NGROK=true
