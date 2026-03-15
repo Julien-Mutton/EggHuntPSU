@@ -1,12 +1,9 @@
-/**
- * Login page with JWT auth and optional Google OAuth.
- */
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { loginWithMicrosoft } from '../lib/msal';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import api from '../api/axios';
 
 export default function Login() {
     const { login, socialLogin } = useAuth();
@@ -15,6 +12,11 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [sponsors, setSponsors] = useState([]);
+
+    useEffect(() => {
+        api.get('/sponsors/').then(({ data }) => setSponsors(data.results || data)).catch(() => {});
+    }, []);
 
     const handleGoogleSuccess = async (tokenResponse) => {
         setError('');
@@ -71,26 +73,11 @@ export default function Login() {
                 <form onSubmit={handleSubmit} className="auth-form">
                     <div className="form-group">
                         <label htmlFor="username">Username</label>
-                        <input
-                            id="username"
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Enter your username"
-                            required
-                            autoFocus
-                        />
+                        <input id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter your username" required autoFocus />
                     </div>
                     <div className="form-group">
                         <label htmlFor="password">Password</label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter your password"
-                            required
-                        />
+                        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required />
                     </div>
                     <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
                         {loading ? 'Logging in...' : 'Log In'}
@@ -99,24 +86,12 @@ export default function Login() {
 
                 {(showGoogleAuth || showMicrosoftAuth) && (
                     <>
-                        <div className="auth-divider">
-                            <span>or</span>
-                        </div>
+                        <div className="auth-divider"><span>or</span></div>
                         {showGoogleAuth && (
-                            <GoogleSignInButton
-                                onSuccess={handleGoogleSuccess}
-                                onError={() => setError('Google sign-in was cancelled or failed.')}
-                                disabled={loading}
-                                label="Sign in with Google"
-                            />
+                            <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={() => setError('Google sign-in was cancelled or failed.')} disabled={loading} label="Sign in with Google" />
                         )}
                         {showMicrosoftAuth && (
-                            <button
-                                type="button"
-                                className="btn btn-outline btn-full"
-                                onClick={handleMicrosoftLogin}
-                                disabled={loading}
-                            >
+                            <button type="button" className="btn btn-outline btn-full" onClick={handleMicrosoftLogin} disabled={loading}>
                                 Sign in with Microsoft
                             </button>
                         )}
@@ -127,18 +102,26 @@ export default function Login() {
                     <p>Don't have an account? <Link to={`/register${location.search}`}>Sign up</Link></p>
                 </div>
 
-                <div className="auth-sponsors" style={{ marginTop: '2rem', textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sponsored By</p>
-                    <a href="https://linktr.ee/TheGlobalEngagementCommunity" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
-                        <img 
-                            src="/GEC_logo.png" 
-                            alt="The Global Engagement Community" 
-                            style={{ width: '120px', height: 'auto', display: 'block', margin: '0 auto', opacity: 0.85, transition: 'opacity 0.2s' }}
-                            onMouseOver={(e) => e.currentTarget.style.opacity = 1}
-                            onMouseOut={(e) => e.currentTarget.style.opacity = 0.85}
-                        />
-                    </a>
-                </div>
+                {sponsors.length > 0 && (
+                    <div className="auth-sponsors" style={{ marginTop: '2rem', textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sponsored By</p>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                            {sponsors.map(s => (
+                                <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                    {s.logo && (
+                                        <img
+                                            src={s.logo}
+                                            alt={s.name}
+                                            style={{ width: '100px', height: 'auto', display: 'block', opacity: 0.85, transition: 'opacity 0.2s', borderRadius: '8px' }}
+                                            onMouseOver={(e) => e.currentTarget.style.opacity = 1}
+                                            onMouseOut={(e) => e.currentTarget.style.opacity = 0.85}
+                                        />
+                                    )}
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -22,15 +22,15 @@ export default function Prizes() {
     return (
         <div className="page">
             <div className="page-header">
-                <h1>🎁 Prizes</h1>
-                <p className="subtitle">Earn points to unlock amazing rewards!</p>
+                <h1>🎁 Achievements</h1>
+                <p className="subtitle">Earn points to unlock achievements!</p>
             </div>
 
             {loading ? (
                 <div className="loading-inline"><div className="spinner" /></div>
             ) : prizes.length === 0 ? (
                 <div className="empty-state">
-                    <p>No prizes available yet. Keep hunting!</p>
+                    <p>No achievements available yet. Keep hunting!</p>
                 </div>
             ) : (
                 <div className="prizes-grid">

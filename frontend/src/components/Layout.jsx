@@ -1,8 +1,3 @@
-/**
- * Layout component with navigation bar.
- * Renders different nav links for admins vs users.
- */
-
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { FiLogOut, FiAward, FiList, FiBarChart2, FiHome, FiGift, FiPackage, FiCamera, FiUser, FiMail } from 'react-icons/fi';
@@ -42,7 +37,7 @@ export default function Layout() {
                             <Link to="/admin" className={isActive('/admin')}><FiHome /> <span className="nav-text">Dashboard</span></Link>
                             <Link to="/admin/eggs" className={isActive('/admin/eggs')}><FiPackage /> <span className="nav-text">Eggs</span></Link>
                             <Link to="/admin/redemptions" className={isActive('/admin/redemptions')}><FiBarChart2 /> <span className="nav-text">Redemptions</span></Link>
-                            <Link to="/admin/prizes" className={isActive('/admin/prizes')}><FiGift /> <span className="nav-text">Prizes</span></Link>
+                            <Link to="/admin/achievements" className={isActive('/admin/achievements')}><FiGift /> <span className="nav-text">Achievements</span></Link>
                             <Link to="/admin/email" className={isActive('/admin/email')}><FiMail /> <span className="nav-text">Email</span></Link>
                             <hr className="nav-divider desktop-only" />
                         </>
@@ -54,7 +49,7 @@ export default function Layout() {
                             <Link to="/dashboard" className={isActive('/dashboard')}><FiHome /> <span className="nav-text">Home</span></Link>
                             <Link to="/scan" className={isActive('/scan')}><FiCamera /> <span className="nav-text">Scan</span></Link>
                             <Link to="/leaderboard" className={isActive('/leaderboard')}><FiBarChart2 /> <span className="nav-text">Leaderboard</span></Link>
-                            <Link to="/prizes" className={isActive('/prizes')}><FiAward /> <span className="nav-text">Prizes</span></Link>
+                            <Link to="/achievements" className={isActive('/achievements')}><FiAward /> <span className="nav-text">Achievements</span></Link>
                             <Link to="/history" className={isActive('/history')}><FiList /> <span className="nav-text">History</span></Link>
                         </>
                     )}

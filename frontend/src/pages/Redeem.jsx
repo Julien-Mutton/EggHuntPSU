@@ -228,7 +228,7 @@ export default function Redeem() {
             return next;
         });
         try {
-            const { data } = await api.post(`/links/${link.id}/claim/`);
+            const { data } = await api.post(`/global-links/${link.id}/claim/`);
             if (data.points_awarded > 0) {
                 setClaimFeedback(prev => ({ ...prev, [link.id]: data.points_awarded }));
                 await fetchUser();
@@ -404,6 +404,10 @@ export default function Redeem() {
                             </div>
                         </div>
                     )}
+
+                    <div className="recycle-notice" style={{ margin: '1.5rem 0 0', padding: '0.75rem 1rem', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                        ♻️ If you find an egg on campus, whether it has been claimed or not, please throw the egg in a recycling trash can if possible afterwards.
+                    </div>
 
                     <div className="redeem-actions">
                         <Link to="/dashboard" className="btn btn-outline">Back to Dashboard</Link>

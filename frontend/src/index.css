@@ -2307,4 +2307,57 @@ a:hover {
   .prizes-grid {
     grid-template-columns: 1fr;
   }
+
+  .prize-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Prize Info Cards (Leaderboard Prizes tab) ──────────── */
+.prize-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.prize-info-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.prize-info-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.prize-info-card.gold   { border-left: 4px solid #FDCB6E; }
+.prize-info-card.silver { border-left: 4px solid #A7A9BE; }
+.prize-info-card.bronze { border-left: 4px solid #E17055; }
+.prize-info-card.special { border-left: 4px solid #55EFC4; }
+
+.prize-info-rank {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.prize-info-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.prize-info-place {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.prize-info-reward {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
 }

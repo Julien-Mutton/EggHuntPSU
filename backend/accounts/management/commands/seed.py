@@ -6,7 +6,7 @@ Usage: python manage.py seed
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from eggs.models import EggQRCode
-from rewards.models import Prize, CommunityLink
+from rewards.models import Prize, CommunityLink, SponsorOrganization
 
 User = get_user_model()
 
@@ -149,5 +149,48 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f'  ✓ {len(links)} community links created'))
         else:
             self.stdout.write(f'  ⊘ Community links already exist ({CommunityLink.objects.count()} total)')
+
+        # ── Sponsors ─────────────────────────────────────────
+        if SponsorOrganization.objects.count() == 0:
+            import os, shutil
+            from django.conf import settings
+
+            logos_dir = os.path.join(settings.MEDIA_ROOT, 'sponsor_logos')
+            os.makedirs(logos_dir, exist_ok=True)
+
+            base_dir = os.path.dirname(settings.BASE_DIR)
+            sponsors_data = [
+                {
+                    'name': 'The Global Engagement Community',
+                    'url': 'https://linktr.ee/TheGlobalEngagementCommunity',
+                    'source_logo': os.path.join(base_dir, 'frontend', 'public', 'GEC_logo.png'),
+                    'logo_filename': 'gec_logo.png',
+                    'order': 1,
+                },
+                {
+                    'name': 'Nittany AI Student Society',
+                    'url': 'https://linktr.ee/colinruark1',
+                    'source_logo': os.path.join(base_dir, 'Student Society.png'),
+                    'logo_filename': 'nittany_ai_logo.png',
+                    'order': 2,
+                },
+            ]
+            for s in sponsors_data:
+                logo_path = ''
+                src = s['source_logo']
+                if os.path.isfile(src):
+                    dest = os.path.join(logos_dir, s['logo_filename'])
+                    shutil.copy2(src, dest)
+                    logo_path = f'sponsor_logos/{s["logo_filename"]}'
+
+                SponsorOrganization.objects.create(
+                    name=s['name'],
+                    url=s['url'],
+                    logo=logo_path,
+                    order=s['order'],
+                )
+            self.stdout.write(self.style.SUCCESS(f'  ✓ {len(sponsors_data)} sponsors created'))
+        else:
+            self.stdout.write(f'  ⊘ Sponsors already exist ({SponsorOrganization.objects.count()} total)')
 
         self.stdout.write(self.style.SUCCESS('\n🎉 Seeding complete!'))

@@ -89,10 +89,10 @@ export default function AdminDashboard() {
                         <h3>Redemptions</h3>
                         <p>Track who found what</p>
                     </Link>
-                    <Link to="/admin/prizes" className="action-card">
+                    <Link to="/admin/achievements" className="action-card">
                         <span className="action-emoji">🏆</span>
-                        <h3>Manage Prizes</h3>
-                        <p>Create and edit prizes</p>
+                        <h3>Manage Achievements</h3>
+                        <p>Create and edit achievements</p>
                     </Link>
                     <Link to="/leaderboard" className="action-card">
                         <span className="action-emoji">📈</span>

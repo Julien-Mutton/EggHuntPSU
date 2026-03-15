@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
-import { FiLogOut } from 'react-icons/fi';
+import { FiLogOut, FiTrash2 } from 'react-icons/fi';
 
 export default function Account() {
     const { user, logout, fetchUser } = useAuth();
@@ -16,6 +16,8 @@ export default function Account() {
     const [pwConfirm, setPwConfirm] = useState('');
     const [pwLoading, setPwLoading] = useState(false);
     const [pwError, setPwError] = useState('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     useEffect(() => {
         setEmail(user?.email || '');
@@ -72,6 +74,19 @@ export default function Account() {
             setPwError(d?.old_password?.[0] || d?.new_password?.[0] || d?.detail || 'Failed to change password.');
         } finally {
             setPwLoading(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        setDeleteLoading(true);
+        try {
+            await api.post('/auth/delete-account/');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            window.location.href = '/login';
+        } catch {
+            alert('Failed to delete account. Please try again.');
+            setDeleteLoading(false);
         }
     };
 
@@ -179,11 +194,34 @@ export default function Account() {
                 )}
             </div>
 
-            <div className="section" style={{ marginTop: '2rem' }}>
+            <div className="section" style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <button className="btn btn-danger" onClick={logout}>
                     <FiLogOut /> Logout
                 </button>
+                <button className="btn btn-outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => setShowDeleteConfirm(true)}>
+                    <FiTrash2 /> Delete Account
+                </button>
             </div>
+
+            {showDeleteConfirm && (
+                <div className="modal-overlay">
+                    <div className="modal-card" style={{ maxWidth: '420px', textAlign: 'center' }}>
+                        <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '1rem' }}>⚠️</span>
+                        <h2 style={{ marginBottom: '0.5rem' }}>Delete Account?</h2>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                            This action is permanent and cannot be undone. Your account, profile, and session data will be deleted. Your claimed eggs will remain on the leaderboard.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                            <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)} disabled={deleteLoading}>
+                                Cancel
+                            </button>
+                            <button className="btn btn-danger" onClick={handleDeleteAccount} disabled={deleteLoading}>
+                                {deleteLoading ? 'Deleting...' : 'Yes, Delete My Account'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

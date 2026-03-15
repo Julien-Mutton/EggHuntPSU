@@ -1,8 +1,3 @@
-/**
- * WelcomeModal — First-time user onboarding.
- * Explains the Egg Hunt app and how it works.
- */
-
 export default function WelcomeModal({ onDismiss }) {
     return (
         <div className="modal-overlay">
@@ -38,15 +33,15 @@ export default function WelcomeModal({ onDismiss }) {
                     <div className="welcome-step">
                         <span className="step-icon">🎁</span>
                         <div>
-                            <h3>Unlock Prizes</h3>
-                            <p>Earn enough points to unlock real prizes and rewards!</p>
+                            <h3>Unlock Achievements</h3>
+                            <p>Earn enough points to unlock achievements and rewards!</p>
                         </div>
                     </div>
                     <div className="welcome-step">
-                        <span className="step-icon">🤝</span>
+                        <span className="step-icon">♻️</span>
                         <div>
-                            <h3>Join the Community</h3>
-                            <p>Connect with other hunters through our social channels.</p>
+                            <h3>Recycle the Eggs</h3>
+                            <p>If you find an egg on campus, whether it has been claimed or not, please throw the egg in a recycling trash can if possible afterwards.</p>
                         </div>
                     </div>
                 </div>

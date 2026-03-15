@@ -70,7 +70,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/scan" element={<ScanQR />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
-        <Route path="/prizes" element={<Prizes />} />
+        <Route path="/achievements" element={<Prizes />} />
         <Route path="/history" element={<History />} />
         <Route path="/community" element={<Community />} />
         <Route path="/account" element={<Account />} />
@@ -81,7 +81,7 @@ function AppRoutes() {
         <Route path="/admin/eggs/generate" element={<ProtectedRoute adminOnly><EggGenerate /></ProtectedRoute>} />
         <Route path="/admin/eggs/export" element={<ProtectedRoute adminOnly><EggExport /></ProtectedRoute>} />
         <Route path="/admin/redemptions" element={<ProtectedRoute adminOnly><RedemptionTracking /></ProtectedRoute>} />
-        <Route path="/admin/prizes" element={<ProtectedRoute adminOnly><PrizeManager /></ProtectedRoute>} />
+        <Route path="/admin/achievements" element={<ProtectedRoute adminOnly><PrizeManager /></ProtectedRoute>} />
         <Route path="/admin/email" element={<ProtectedRoute adminOnly><AdminEmail /></ProtectedRoute>} />
       </Route>
 

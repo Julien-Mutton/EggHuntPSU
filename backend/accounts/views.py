@@ -69,6 +69,16 @@ class ChangePasswordView(APIView):
         })
 
 
+class DeleteAccountView(APIView):
+    """POST /api/auth/delete-account/ — permanently delete the requesting user's account."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        user.delete()
+        return Response({'detail': 'Account deleted.'}, status=status.HTTP_200_OK)
+
+
 class SocialLoginView(APIView):
     """
     POST /api/auth/social/google/

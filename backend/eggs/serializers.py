@@ -129,7 +129,7 @@ class EggUpdateSerializer(serializers.ModelSerializer):
 
 class RedemptionSerializer(serializers.ModelSerializer):
     """Redemption record — for admin audit trail."""
-    username = serializers.CharField(source='user.username', read_only=True)
+    username = serializers.SerializerMethodField()
     egg_title = serializers.CharField(source='egg.title', read_only=True)
     egg_code = serializers.UUIDField(source='egg.code_identifier', read_only=True)
 
@@ -139,6 +139,9 @@ class RedemptionSerializer(serializers.ModelSerializer):
             'id', 'username', 'egg', 'egg_title', 'egg_code',
             'points_awarded', 'redeemed_at',
         )
+
+    def get_username(self, obj):
+        return obj.user.username if obj.user else 'Deleted User'
 
 class RedemptionResultSerializer(serializers.Serializer):
     """Response after a successful redemption."""

@@ -45,7 +45,7 @@ export default function PrizeManager() {
             setForm({ name: '', description: '', points_required: 50, is_active: true });
             loadPrizes();
         } catch (err) {
-            setError(err.response?.data?.detail || 'Failed to save prize.');
+            setError(err.response?.data?.detail || 'Failed to save achievement.');
         }
     };
 
@@ -61,20 +61,20 @@ export default function PrizeManager() {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Are you sure you want to delete this prize?')) return;
+        if (!confirm('Are you sure you want to delete this achievement?')) return;
         try {
             await api.delete(`/admin/prizes/${id}/`);
             loadPrizes();
         } catch {
-            alert('Failed to delete prize.');
+            alert('Failed to delete achievement.');
         }
     };
 
     return (
         <div className="page">
             <div className="page-header">
-                <h1>🏆 Prize Manager</h1>
-                <p className="subtitle">Create and manage rewards for egg hunters</p>
+                <h1>🏆 Achievement Manager</h1>
+                <p className="subtitle">Create and manage achievements for egg hunters</p>
             </div>
 
             <button
@@ -86,16 +86,16 @@ export default function PrizeManager() {
                 }}
                 style={{ marginBottom: '1rem' }}
             >
-                {showForm ? 'Cancel' : '+ Add Prize'}
+                {showForm ? 'Cancel' : '+ Add Achievement'}
             </button>
 
             {showForm && (
                 <div className="form-card" style={{ marginBottom: '2rem' }}>
-                    <h3>{editingId ? 'Edit Prize' : 'New Prize'}</h3>
+                    <h3>{editingId ? 'Edit Achievement' : 'New Achievement'}</h3>
                     {error && <div className="alert alert-error">{error}</div>}
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
-                            <label htmlFor="name">Prize Name</label>
+                            <label htmlFor="name">Achievement Name</label>
                             <input id="name" name="name" type="text" value={form.name} onChange={handleChange} required />
                         </div>
                         <div className="form-group">
@@ -115,7 +115,7 @@ export default function PrizeManager() {
                             </div>
                         </div>
                         <button type="submit" className="btn btn-primary">
-                            {editingId ? 'Update Prize' : 'Create Prize'}
+                            {editingId ? 'Update Achievement' : 'Create Achievement'}
                         </button>
                     </form>
                 </div>
@@ -125,7 +125,7 @@ export default function PrizeManager() {
                 <div className="loading-inline"><div className="spinner" /></div>
             ) : prizes.length === 0 ? (
                 <div className="empty-state">
-                    <p>No prizes created yet.</p>
+                    <p>No achievements created yet.</p>
                 </div>
             ) : (
                 <div className="table-container">

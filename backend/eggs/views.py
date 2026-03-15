@@ -236,13 +236,14 @@ class LinkClaimView(APIView):
 
 # ── User: Redeem ─────────────────────────────────────────────
 
-def _build_reward_links(egg, user):
-    """Build reward links list with per-user claim status."""
+def _build_reward_links(user):
+    """Build global reward links list with per-user claim status."""
+    from rewards.models import GlobalRewardLink, GlobalRewardLinkClaim
     result = []
-    for link in egg.reward_links.all():
+    for link in GlobalRewardLink.objects.filter(is_active=True):
         already_claimed = (
             link.is_unique_per_user
-            and RewardLinkClaim.objects.filter(user=user, reward_link=link).exists()
+            and GlobalRewardLinkClaim.objects.filter(user=user, reward_link=link).exists()
         )
         result.append({
             'id': link.id,
@@ -314,7 +315,7 @@ class RedeemView(APIView):
                         return Response(
                             _redeem_response(request, egg, user, success=True,
                                              message='You have already found this egg!', points_earned=0,
-                                             reward_links=_build_reward_links(egg, user)),
+                                             reward_links=_build_reward_links(user)),
                             status=status.HTTP_200_OK,
                         )
                     return Response(
@@ -338,7 +339,7 @@ class RedeemView(APIView):
                     _redeem_response(request, egg, user, success=True,
                                      message=f'You found an egg worth {egg.points} points!',
                                      points_earned=egg.points,
-                                     reward_links=_build_reward_links(egg, user)),
+                                     reward_links=_build_reward_links(user)),
                     status=status.HTTP_200_OK,
                 )
 
