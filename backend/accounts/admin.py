@@ -10,7 +10,7 @@ class UserAdmin(admin.ModelAdmin):
     list_filter = ('role', 'is_active', 'date_joined')
     search_fields = ('username', 'email')
     ordering = ('-total_points',)
-    readonly_fields = ('total_points', 'date_joined', 'last_login')
+    readonly_fields = ('date_joined', 'last_login')
     
     fieldsets = (
         ('Account Information', {
