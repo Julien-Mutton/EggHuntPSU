@@ -9,7 +9,6 @@
 #    ./run-pi.sh --ngrok      # with ngrok tunnels
 #    ./run-pi.sh --stop       # stop all services
 # ─────────────────────────────────────────────────────────
-set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$ROOT_DIR/logs"
@@ -17,40 +16,25 @@ PID_DIR="$ROOT_DIR/.pids"
 
 mkdir -p "$LOG_DIR" "$PID_DIR"
 
-# ── Load .env (handles quoted values with spaces) ────────
+# ── Load .env ─────────────────────────────────────────────
 if [ -f "$ROOT_DIR/.env" ]; then
   set -a
   source "$ROOT_DIR/.env"
   set +a
 fi
 
-# ── Helpers ──────────────────────────────────────────────
-start_process() {
-  local name="$1" cmd="$2" dir="$3" log="$LOG_DIR/$name.log"
-  local pidfile="$PID_DIR/$name.pid"
-
-  if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
-    echo "  ⊘ $name already running (pid $(cat "$pidfile"))"
-    return
-  fi
-
-  > "$log"
-  cd "$dir"
-  nohup bash -c "exec $cmd" >> "$log" 2>&1 &
-  echo $! > "$pidfile"
-  echo "  ✓ $name started (pid $!) → logs/$name.log"
-}
-
+# ── Helpers ───────────────────────────────────────────────
 stop_all() {
   echo ""
   echo "▸ Stopping services..."
   for pidfile in "$PID_DIR"/*.pid; do
     [ -f "$pidfile" ] || continue
-    local name pid
     name="$(basename "$pidfile" .pid)"
     pid="$(cat "$pidfile")"
     if kill -0 "$pid" 2>/dev/null; then
-      kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null
+      kill "$pid" 2>/dev/null
+      sleep 0.3
+      kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null
       echo "  ✓ $name stopped (pid $pid)"
     else
       echo "  ⊘ $name was not running"
@@ -67,12 +51,26 @@ domain_from_url() {
   echo "$1" | sed 's|https\?://||' | sed 's|/.*||'
 }
 
-# ── Handle --stop ────────────────────────────────────────
+launch() {
+  local name="$1" logfile="$LOG_DIR/$name.log" pidfile="$PID_DIR/$name.pid"
+  shift
+
+  if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+    echo "  ⊘ $name already running (pid $(cat "$pidfile"))"
+    return
+  fi
+
+  "$@" > "$logfile" 2>&1 &
+  echo $! > "$pidfile"
+  echo "  ✓ $name started (pid $!) → logs/$name.log"
+}
+
+# ── Handle --stop ─────────────────────────────────────────
 if [ "$1" = "--stop" ]; then
   stop_all
 fi
 
-# ── Banner ───────────────────────────────────────────────
+# ── Banner ────────────────────────────────────────────────
 USE_NGROK=false
 [ "$1" = "--ngrok" ] && USE_NGROK=true
 
@@ -80,21 +78,28 @@ echo ""
 echo "🥚  Egg Hunt — Raspberry Pi Launcher"
 echo "════════════════════════════════════════"
 
-# ── Start Backend ────────────────────────────────────────
+# ── Pre-flight checks ────────────────────────────────────
+PYTHON="$ROOT_DIR/venv/bin/python"
+if [ ! -x "$PYTHON" ]; then
+  echo ""
+  echo "❌ Python venv not found at: $PYTHON"
+  echo "   Run ./setup.sh first."
+  exit 1
+fi
+
+# ── Start Backend ─────────────────────────────────────────
 echo ""
 echo "▸ Starting backend..."
-start_process "backend" \
-  "'$ROOT_DIR/venv/bin/python' manage.py runserver --noreload 0.0.0.0:8000" \
-  "$ROOT_DIR/backend"
+cd "$ROOT_DIR/backend"
+launch "backend" "$PYTHON" manage.py runserver --noreload 0.0.0.0:8000
 
-# ── Start Frontend ───────────────────────────────────────
+# ── Start Frontend ────────────────────────────────────────
 echo ""
 echo "▸ Starting frontend..."
-start_process "frontend" \
-  "npm run dev -- --host" \
-  "$ROOT_DIR/frontend"
+cd "$ROOT_DIR/frontend"
+launch "frontend" npx vite --host
 
-# ── Start ngrok tunnels (optional) ──────────────────────
+# ── Start ngrok tunnels (optional) ────────────────────────
 BACKEND_DOMAIN=""
 FRONTEND_DOMAIN=""
 
@@ -104,7 +109,6 @@ if $USE_NGROK; then
     echo "❌ ngrok is not installed. Install from https://ngrok.com/download"
     echo "   Skipping tunnels — servers are running on LAN only."
   else
-    # Extract domains from BACKEND_URL / FRONTEND_URL if they contain ngrok
     if echo "$BACKEND_URL" | grep -q 'ngrok'; then
       BACKEND_DOMAIN="$(domain_from_url "$BACKEND_URL")"
     fi
@@ -114,47 +118,44 @@ if $USE_NGROK; then
 
     echo ""
     echo "▸ Starting ngrok tunnels..."
+    cd "$ROOT_DIR"
 
     if [ -n "$BACKEND_DOMAIN" ]; then
-      start_process "ngrok-backend" \
-        "ngrok http --url=$BACKEND_DOMAIN 8000" \
-        "$ROOT_DIR"
+      launch "ngrok-backend" ngrok http --url="$BACKEND_DOMAIN" 8000
     else
-      start_process "ngrok-backend" \
-        "ngrok http 8000" \
-        "$ROOT_DIR"
+      launch "ngrok-backend" ngrok http 8000
     fi
 
     if [ -n "$FRONTEND_DOMAIN" ]; then
-      start_process "ngrok-frontend" \
-        "ngrok http --url=$FRONTEND_DOMAIN 5173" \
-        "$ROOT_DIR"
+      launch "ngrok-frontend" ngrok http --url="$FRONTEND_DOMAIN" 5173
     else
-      start_process "ngrok-frontend" \
-        "ngrok http 5173" \
-        "$ROOT_DIR"
+      launch "ngrok-frontend" ngrok http 5173
     fi
   fi
 fi
 
-# ── Wait and verify backend is alive ────────────────────
-sleep 4
-BACKEND_PID_FILE="$PID_DIR/backend.pid"
-if [ -f "$BACKEND_PID_FILE" ] && ! kill -0 "$(cat "$BACKEND_PID_FILE")" 2>/dev/null; then
-  echo ""
-  echo "⚠  Backend crashed on startup. Last 20 lines of logs/backend.log:"
-  echo "────────────────────────────────────────"
-  tail -20 "$LOG_DIR/backend.log" 2>/dev/null || echo "(no log output)"
-  echo "────────────────────────────────────────"
+# ── Verify backend is alive ──────────────────────────────
+sleep 3
+BPID_FILE="$PID_DIR/backend.pid"
+if [ -f "$BPID_FILE" ]; then
+  BPID="$(cat "$BPID_FILE")"
+  if ! kill -0 "$BPID" 2>/dev/null; then
+    echo ""
+    echo "⚠  Backend crashed on startup (pid $BPID)."
+    echo "── logs/backend.log ──────────────────────"
+    cat "$LOG_DIR/backend.log" 2>/dev/null || echo "(empty)"
+    echo "───────────────────────────────────────────"
+  fi
 fi
 
-# ── Summary ──────────────────────────────────────────────
+# ── Summary ───────────────────────────────────────────────
+LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo ""
 echo "════════════════════════════════════════"
 echo "🚀  Services running!"
 echo ""
-echo "   Frontend:  http://$(hostname -I | awk '{print $1}'):5173"
-echo "   Backend:   http://$(hostname -I | awk '{print $1}'):8000"
+echo "   Frontend:  http://${LAN_IP:-localhost}:5173"
+echo "   Backend:   http://${LAN_IP:-localhost}:8000"
 if $USE_NGROK; then
   [ -n "$FRONTEND_DOMAIN" ] && echo "   Tunnel:    https://$FRONTEND_DOMAIN"
   [ -n "$BACKEND_DOMAIN" ]  && echo "   Tunnel:    https://$BACKEND_DOMAIN"
