@@ -45,8 +45,16 @@ export default function Register() {
         } catch (err) {
             const data = err.response?.data;
             if (data) {
-                const messages = Object.values(data).flat().join(' ');
-                setError(messages || 'Registration failed.');
+                const fieldLabels = { username: 'Username', email: 'Email', password: 'Password', non_field_errors: '' };
+                const parts = [];
+                for (const [field, msgs] of Object.entries(data)) {
+                    const label = fieldLabels[field] ?? field;
+                    const list = Array.isArray(msgs) ? msgs : [msgs];
+                    list.forEach(m => {
+                        parts.push(label ? `${label}: ${m}` : m);
+                    });
+                }
+                setError(parts.join('\n') || 'Registration failed.');
             } else {
                 setError('Registration failed. Please try again.');
             }
@@ -80,7 +88,7 @@ export default function Register() {
                     <p>Create an account to start finding eggs</p>
                 </div>
 
-                {error && <div className="alert alert-error">{error}</div>}
+                {error && <div className="alert alert-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
 
                 <form onSubmit={handleSubmit} className="auth-form">
                     <div className="form-group">

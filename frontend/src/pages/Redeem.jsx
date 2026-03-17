@@ -214,6 +214,12 @@ export default function Redeem() {
 
     const handleClaimLink = async (link) => {
         if (!link.id || (link.extra_points ?? 0) <= 0 || claimingLinkId) return;
+
+        // Open the URL synchronously so Safari doesn't block it as a popup
+        if (link.url) {
+            window.open(link.url, '_blank', 'noopener,noreferrer');
+        }
+
         setClaimingLinkId(link.id);
         setClaimFeedback(prev => {
             const next = { ...prev };
@@ -226,9 +232,6 @@ export default function Redeem() {
                 setClaimFeedback(prev => ({ ...prev, [link.id]: data.points_awarded }));
                 await fetchUser();
                 setTimeout(() => setClaimFeedback(prev => { const n = { ...prev }; delete n[link.id]; return n; }), 2500);
-            }
-            if (data.redirect_url) {
-                window.open(data.redirect_url, '_blank', 'noopener,noreferrer');
             }
         } catch {
             setClaimFeedback(prev => ({ ...prev, [link.id]: 'error' }));
